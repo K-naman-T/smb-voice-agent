@@ -19,7 +19,7 @@ async def test_edge_tts_empty_text():
 
 @pytest.mark.asyncio
 async def test_edge_tts_hindi():
-    tts = EdgeTTS(voice="en-US-AriaNeural")
+    tts = EdgeTTS(voice="hi-IN-SwaraNeural")
     audio = await tts.synthesize("नमस्ते, आपकी कैसे मदद कर सकता हूँ?", lang="hi")
     assert isinstance(audio, bytes)
     assert len(audio) > 0
