@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>CoolAir Services — AI Receptionist</title>
+<style>
+  :root {
+    --bg: #060606;
+    --txt: #e6edf3;
+    --dim: #8b949e;
+    --cyan: #06b6d4;
+    --blue: #1c8cff;
+    --orange: #ff3e1c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--txt);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .stage {
+    position: relative;
+    width: min(420px, 92vw);
+    height: min(420px, 92vw);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .orb-clickable {
+    position: relative;
+    width: 350px;
+    height: 350px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    transition: transform .25s ease;
+    z-index: 10;
+  }
+  .orb-clickable:hover { transform: scale(1.04); }
+  .orb-clickable:active { transform: scale(0.98); }
+  .orb-container {
+    position: relative;
+    width: 230px;
+    height: 230px;
+    border-radius: 50%;
+    background: #060606;
+    filter: blur(20px);
+    box-shadow: inset 0 0 30px rgba(255,255,255,0.03);
+    animation: orbRotate linear infinite;
+    animation-duration: var(--orb-dur, 60s);
+    transition: animation-duration 1.2s ease-in-out;
+  }
+  .orb-inner {
+    position: absolute;
+    left: -120%;
+    top: -25%;
+    width: 160%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 30% 40%, rgba(255,255,255,0.7), rgba(200,200,210,0.4) 50%, rgba(100,100,120,0.15) 100%);
+    clip-path: polygon(
+      50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%,
+      50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%
+    );
+    animation: orbRotate linear infinite;
+    animation-duration: var(--inner1-dur, 45s);
+    transition: background 1.2s cubic-bezier(0.4,0,0.2,1), animation-duration 1.2s ease-in-out;
+    opacity: 0.6;
+    will-change: transform;
+    --audio-scale: 1;
+  }
+  .orb-inner:nth-child(2) {
+    left: auto;
+    right: -120%;
+    top: auto;
+    bottom: -25%;
+    background: #475569;
+    animation-direction: reverse;
+    animation-duration: var(--inner2-dur, 50s);
+    clip-path: polygon(
+      20% 0%, 0% 20%, 30% 50%, 0% 80%, 20% 100%,
+      50% 70%, 80% 100%, 100% 80%, 70% 50%, 100% 20%,
+      80% 0%, 50% 30%
+    );
+  }
+  @keyframes orbRotate {
+    0% { transform: rotate(0deg) scale(var(--audio-scale, 1)); }
+    100% { transform: rotate(360deg) scale(var(--audio-scale, 1)); }
+  }
+  /* state classes */
+  .state-listening .orb-container { --orb-dur: 3s; }
+  .state-listening .orb-inner { --inner1-dur: 4s; --inner2-dur: 5s; }
+  .state-listening .orb-inner { background: #06b6d4; opacity: 0.8; }
+  .state-listening .orb-inner:nth-child(2) { background: #3b82f6; }
+  .state-thinking .orb-container { --orb-dur: 10s; }
+  .state-thinking .orb-inner { --inner1-dur: 6s; --inner2-dur: 8s; }
+  .state-thinking .orb-inner { background: #1c8cff; opacity: 0.75; }
+  .state-thinking .orb-inner:nth-child(2) { background: #3b82f6; }
+  .state-speaking .orb-container { --orb-dur: 10s; }
+  .state-speaking .orb-inner { --inner1-dur: 6s; --inner2-dur: 8s; }
+  .state-speaking .orb-inner { background: #ff3e1c; opacity: 0.8; }
+  .state-speaking .orb-inner:nth-child(2) { background: #1c8cff; }
+  .state-idle .orb-container { --orb-dur: 60s; }
+  .state-idle .orb-inner { --inner1-dur: 45s; --inner2-dur: 50s; }
+
+  /* status */
+  .status {
+    position: fixed;
+    top: 42px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: var(--dim);
+    letter-spacing: .4px;
+    text-align: center;
+    z-index: 50;
+  }
+  .status .name { font-size: 15px; font-weight: 600; color: var(--txt); margin-bottom: 4px; }
+  .status .state-txt { display: flex; align-items: center; justify-content: center; gap: 7px; }
+  .status .dot { width: 7px; height: 7px; border-radius: 50%; background: #475569; transition: background .4s; }
+  .state-listening .dot { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+  .state-thinking .dot { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+  .state-speaking .dot { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+
+  /* transcript */
+  .transcript {
+    position: fixed;
+    bottom: 46px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(520px, 92vw);
+    max-height: 30vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    z-index: 50;
+    scrollbar-width: none;
+  }
+  .transcript::-webkit-scrollbar { display: none; }
+  .t-row { display: flex; gap: 8px; align-items: flex-start; opacity: 0; transform: translateY(6px); animation: fadeUp .35s forwards; }
+  .t-row .who { font-size: 11px; color: var(--dim); min-width: 52px; text-align: right; padding-top: 3px; }
+  .t-row .txt { flex: 1; }
+  .t-row.user .txt { color: var(--txt); }
+  .t-row.agent .txt { color: #c9d1d9; }
+  .t-row .booking { color: #3fb950; font-size: 13px; }
+  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+  .hint { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #3d444d; z-index: 50; }
+  .err { position: fixed; top: 96px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #f85149; z-index: 60; max-width: 90vw; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="status">
+    <div class="name">CoolAir Services</div>
+    <div class="state-txt"><span class="dot"></span><span id="stateTxt">tap to talk</span></div>
+  </div>
+
+  <div class="stage">
+    <div class="orb-clickable" id="orb">
+      <div class="orb-container">
+        <div class="orb-inner"></div>
+        <div class="orb-inner"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="transcript" id="transcript"></div>
+  <div class="hint">tap orb to talk · tap again to send · it replies out loud</div>
+  <div class="err" id="err"></div>
+
+<script>
+(() => {
+  const orb = document.getElementById('orb');
+  const stateTxt = document.getElementById('stateTxt');
+  const transcript = document.getElementById('transcript');
+  const errBox = document.getElementById('err');
+
+  const qp = new URLSearchParams(location.search);
+  const agentId = qp.get('agent') || '';
+  let sessionId = localStorage.getItem('smb_sid') || '';
+  let mediaRec = null, chunks = [], recOn = false;
+  let stream = null, micAnalyser = null, micRaf = null;
+  let speakAnalyser = null, speakRaf = null;
+  const audioEl = new Audio();
+  const STATE = { idle: 'state-idle', listening: 'state-listening', thinking: 'state-thinking', speaking: 'state-speaking' };
+
+  function setState(s) {
+    orb.className = 'orb-clickable ' + (STATE[s] || STATE.idle);
+    const txt = { idle: 'tap to talk', listening: 'listening…', thinking: 'thinking…', speaking: 'speaking…' };
+    stateTxt.textContent = txt[s] || txt.idle;
+  }
+
+  function addRow(who, text, cls) {
+    const row = document.createElement('div');
+    row.className = 't-row ' + who;
+    const w = document.createElement('div'); w.className = 'who'; w.textContent = who === 'user' ? 'you' : 'coolair';
+    const t = document.createElement('div'); t.className = 'txt' + (cls ? ' ' + cls : ''); t.textContent = text;
+    row.appendChild(w); row.appendChild(t);
+    transcript.appendChild(row);
+    transcript.scrollTop = transcript.scrollHeight;
+  }
+
+  function setErr(m) { errBox.textContent = m; setTimeout(() => errBox.textContent = '', 4000); }
+
+  // --- mic analyser (while listening) ---
+  function startMicAnalyser() {
+    if (!stream) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaStreamSource(stream);
+      micAnalyser = ctx.createAnalyser();
+      micAnalyser.fftSize = 256;
+      src.connect(micAnalyser);
+      const data = new Uint8Array(micAnalyser.frequencyBinCount);
+      const inner1 = document.querySelectorAll('.orb-inner')[0];
+      const inner2 = document.querySelectorAll('.orb-inner')[1];
+      const tick = () => {
+        micAnalyser.getByteFrequencyData(data);
+        let sum = 0; for (let i = 0; i < 32; i++) sum += data[i];
+        const scale = 1 + (sum / 32 / 255) * 1.2;
+        inner1.style.setProperty('--audio-scale', scale.toFixed(3));
+        inner2.style.setProperty('--audio-scale', scale.toFixed(3));
+        micRaf = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (e) { /* analyser optional */ }
+  }
+  function stopMicAnalyser() {
+    cancelAnimationFrame(micRaf);
+    document.querySelectorAll('.orb-inner').forEach(el => el.style.setProperty('--audio-scale', '1'));
+  }
+
+  // --- playback analyser (while agent speaks) ---
+  function wireSpeakAnalyser() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaElementSource(audioEl);
+      speakAnalyser = ctx.createAnalyser();
+      speakAnalyser.fftSize = 256;
+      src.connect(speakAnalyser); speakAnalyser.connect(ctx.destination);
+      const data = new Uint8Array(speakAnalyser.frequencyBinCount);
+      const inner1 = document.querySelectorAll('.orb-inner')[0];
+      const inner2 = document.querySelectorAll('.orb-inner')[1];
+      const tick = () => {
+        if (audioEl.paused) { cancelAnimationFrame(speakRaf); setState('idle'); return; }
+        speakAnalyser.getByteFrequencyData(data);
+        let sum = 0; for (let i = 0; i < 32; i++) sum += data[i];
+        const scale = 1 + (sum / 32 / 255) * 1.2;
+        inner1.style.setProperty('--audio-scale', scale.toFixed(3));
+        inner2.style.setProperty('--audio-scale', scale.toFixed(3));
+        speakRaf = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (e) {
+      audioEl.onended = () => setState('idle');
+    }
+  }
+
+  async function send(blob) {
+    setState('thinking');
+    const fd = new FormData();
+    if (sessionId) fd.append('session_id', sessionId);
+    if (agentId) fd.append('agent_id', agentId);
+    fd.append('audio', blob, 'clip.webm');
+    try {
+      const res = await fetch('/api/voice/audio', { method: 'POST', body: fd });
+      const d = await res.json();
+      if (d.error) throw new Error(d.error);
+      sessionId = d.session_id;
+      localStorage.setItem('smb_sid', sessionId);
+      addRow('user', d.transcript || '(no speech heard)');
+      addRow('agent', d.response);
+      if (d.booking) addRow('agent', '📅 booking saved: ' + d.booking.join(' · '), 'booking');
+      if (d.audio_url) {
+        audioEl.src = d.audio_url;
+        setState('speaking');
+        wireSpeakAnalyser();
+        audioEl.play().catch(() => setState('idle'));
+      } else {
+        setState('idle');
+      }
+    } catch (e) {
+      setErr('error: ' + e.message);
+      setState('idle');
+    }
+  }
+
+  async function startRec() {
+    if (recOn) return;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      mediaRec = new MediaRecorder(stream);
+      mediaRec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      mediaRec.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+        stopMicAnalyser();
+        const blob = new Blob(chunks, { type: mediaRec.mimeType || 'audio/webm' });
+        send(blob);
+      };
+      mediaRec.start();
+      recOn = true;
+      setState('listening');
+      startMicAnalyser();
+    } catch (e) {
+      setErr('mic blocked: ' + e.message);
+    }
+  }
+
+  function stopRec() {
+    if (!recOn) return;
+    recOn = false;
+    if (mediaRec && mediaRec.state !== 'inactive') mediaRec.stop();
+  }
+
+  orb.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (audioEl && !audioEl.paused) { audioEl.pause(); audioEl.currentTime = 0; setState('idle'); return; }
+    if (recOn) stopRec(); else startRec();
+  });
+  orb.addEventListener('contextmenu', e => e.preventDefault());
+
+  const greeting = agentId ? await fetch('/api/agent/' + agentId).then(r => r.json()).then(a => a.greeting || ('Hi! You\u2019ve reached ' + a.name + '. How can I help you today?')).catch(() => null) : null;
+  addRow('agent', greeting || 'Hi! You\u2019ve reached CoolAir Services. Ask about AC repair, installation, servicing — or book an appointment.');
+  setState('idle');
+})();
+</script>
+</body>
+</html>

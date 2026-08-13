@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Voice Agent Creator — configure your agent</title>
+<style>
+  :root { --bg:#060606; --card:#0d1117; --line:#21262d; --txt:#e6edf3; --dim:#8b949e; --acc:#06b6d4; --ok:#3fb950; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; min-height:100vh; padding:32px 16px 80px; }
+  .wrap { max-width:640px; margin:0 auto; }
+  header { text-align:center; margin-bottom:28px; }
+  .logo { width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,#06b6d4,#1c8cff); display:inline-flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:12px; }
+  h1 { font-size:22px; margin-bottom:6px; }
+  .sub { color:var(--dim); font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; margin-bottom:16px; }
+  .card h2 { font-size:14px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); margin-bottom:14px; }
+  label { display:block; font-size:13px; color:var(--dim); margin:12px 0 5px; }
+  input, select, textarea { width:100%; background:#0a0d11; border:1px solid var(--line); border-radius:8px; color:var(--txt); padding:10px 12px; font-size:14px; font-family:inherit; }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--acc); }
+  textarea { resize:vertical; min-height:64px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .hint { font-size:11px; color:#3d444d; margin-top:4px; }
+  button.primary { width:100%; background:linear-gradient(135deg,#06b6d4,#1c8cff); color:#fff; border:none; border-radius:10px; padding:14px; font-size:15px; font-weight:600; cursor:pointer; transition:.15s; }
+  button.primary:hover { filter:brightness(1.1); }
+  button.primary:disabled { opacity:.5; cursor:wait; }
+  .result { display:none; margin-top:16px; background:#3fb95011; border:1px solid #3fb95055; border-radius:12px; padding:16px; }
+  .result a { color:var(--ok); font-weight:600; word-break:break-all; }
+  .agents { display:flex; flex-direction:column; gap:10px; }
+  .agent-row { display:flex; align-items:center; justify-content:space-between; background:#0a0d11; border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:14px; }
+  .agent-row .meta { color:var(--dim); font-size:12px; margin-top:2px; }
+  .agent-row a { color:var(--acc); font-size:13px; text-decoration:none; white-space:nowrap; margin-left:10px; }
+  .agent-row a:hover { text-decoration:underline; }
+  .err { color:#f85149; font-size:13px; margin-top:10px; display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🎙️</div>
+    <h1>Voice Agent Creator</h1>
+    <div class="sub">Describe your business → get a live voice agent link in seconds</div>
+  </header>
+
+  <div class="card">
+    <h2>1 · Business</h2>
+    <label>Business name *</label>
+    <input id="name" placeholder="CoolAir Services" />
+    <div class="row">
+      <div>
+        <label>Industry</label>
+        <select id="industry">
+          <option value="hvac">HVAC / AC</option>
+          <option value="plumbing">Plumbing</option>
+          <option value="electrical">Electrical</option>
+          <option value="pest_control">Pest Control</option>
+          <option value="general">General / Other</option>
+        </select>
+      </div>
+      <div>
+        <label>Tagline</label>
+        <input id="tagline" value="AI receptionist" />
+      </div>
+    </div>
+    <label>Services (comma-separated)</label>
+    <input id="services" value="AC Repair, AC Installation, AC Servicing, AC Gas Refilling" />
+    <label>Pricing (optional — "Service: price" separated by ;)</label>
+    <textarea id="pricing">AC Repair: starting at ₹500; AC Servicing: ₹1,200 standard, ₹2,500 deep clean</textarea>
+    <div class="row">
+      <div>
+        <label>Hours</label>
+        <input id="hours" value="8 AM to 8 PM, Monday to Sunday" />
+      </div>
+      <div>
+        <label>Emergency</label>
+        <input id="emergency" value="24/7 emergency service available" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Voice &amp; language</h2>
+    <div class="row">
+      <div>
+        <label>Voice</label>
+        <select id="voice"></select>
+      </div>
+      <div>
+        <label>Language</label>
+        <select id="language">
+          <option value="hinglish">Hinglish (auto)</option>
+          <option value="english">English</option>
+          <option value="hindi">Hindi</option>
+        </select>
+      </div>
+    </div>
+    <label>Greeting (optional)</label>
+    <input id="greeting" placeholder="Hi! You've reached [name]. How can I help you?" />
+    <label>Never do (semicolon-separated rules)</label>
+    <input id="never_do" placeholder="never quote exact prices over call; never share technician's personal number" />
+    <label>Business knowledge (optional)</label>
+    <textarea id="kb" placeholder="We service all brands. Warranty on repairs is 90 days. We also do AMC contracts."></textarea>
+  </div>
+
+  <button class="primary" id="createBtn">Create agent → get preview link</button>
+  <div class="err" id="err"></div>
+  <div class="result" id="result">
+    ✅ Agent <b id="rName"></b> is live. <a id="rLink" href="#" target="_blank">Open preview →</a>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h2>Your agents</h2>
+    <div class="agents" id="agentsList"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const voicesSel = document.getElementById('voice');
+  const agentsList = document.getElementById('agentsList');
+
+  async function loadVoices() {
+    const r = await fetch('/api/voices');
+    const v = await r.json();
+    voicesSel.innerHTML = Object.entries(v).map(([id, label]) => `<option value="${id}">${label}</option>`).join('');
+  }
+
+  async function loadAgents() {
+    const r = await fetch('/api/agents');
+    const agents = await r.json();
+    agentsList.innerHTML = agents.length
+      ? agents.map(a => `
+        <div class="agent-row">
+          <div>
+            <div>${a.name} <span style="color:var(--dim)">· ${a.industry}</span></div>
+            <div class="meta">${a.language} · ${a.services.slice(0,3).join(', ')}${a.services.length>3?'…':''}</div>
+          </div>
+          <a href="${a.preview}" target="_blank">talk to it →</a>
+        </div>`).join('')
+      : '<div style="color:var(--dim);font-size:13px">none yet</div>';
+  }
+
+  document.getElementById('createBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('createBtn');
+    const err = document.getElementById('err');
+    const res = document.getElementById('result');
+    err.style.display = 'none'; res.style.display = 'none';
+    const name = document.getElementById('name').value.trim();
+    if (!name) { err.textContent = 'business name required'; err.style.display = 'block'; return; }
+    btn.disabled = true; btn.textContent = 'creating…';
+    try {
+      const fd = new FormData();
+      fd.append('name', name);
+      fd.append('industry', document.getElementById('industry').value);
+      fd.append('tagline', document.getElementById('tagline').value);
+      fd.append('services', document.getElementById('services').value);
+      fd.append('pricing', document.getElementById('pricing').value);
+      fd.append('hours', document.getElementById('hours').value);
+      fd.append('emergency', document.getElementById('emergency').value);
+      fd.append('voice', voicesSel.value);
+      fd.append('language', document.getElementById('language').value);
+      fd.append('greeting', document.getElementById('greeting').value);
+      fd.append('never_do', document.getElementById('never_do').value);
+      fd.append('kb', document.getElementById('kb').value);
+      const r = await fetch('/api/agent', { method: 'POST', body: fd });
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      document.getElementById('rName').textContent = d.agent.name;
+      const link = document.getElementById('rLink');
+      link.href = d.preview;
+      link.textContent = 'Open preview → ' + d.preview;
+      res.style.display = 'block';
+      loadAgents();
+    } catch (e) {
+      err.textContent = 'error: ' + e.message;
+      err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Create agent → get preview link';
+    }
+  });
+
+  loadVoices(); loadAgents();
+})();
+</script>
+</body>
+</html>

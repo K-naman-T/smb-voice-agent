@@ -1,166 +1,280 @@
-import os, uuid, tempfile
-from datetime import datetime
-from contextlib import contextmanager
-import sqlite3
-from fastapi import FastAPI
+"""SMB Voice Agent v2.2 — Voice Agent Creator.
+
+v2.1 + agent registry:
+- /configure : configurator page (owner defines their agent)
+- POST /api/agent : create/update agent profile (name, services, pricing, voice, language, rules)
+- GET  /api/agents : list agents
+- /call?agent=<id> : orb UI bound to that agent
+- voice/audio + voice take agent_id; prompt + TTS voice come from the profile
+"""
+import os
+import re
+import tempfile
+import uuid
+
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from dotenv import load_dotenv
+from fastapi.responses import FileResponse, StreamingResponse
 
-load_dotenv()
+from providers import load_config, create_all_providers
+from providers.base import Message
 
-app = FastAPI(title="SMB Voice Agent Dashboard", version="2.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+CONFIG_PATH = os.getenv("CONFIG_PATH", "config.local.toml")
+app = FastAPI(title="SMB Voice Agent Creator", version="2.2.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-INDUSTRY = os.getenv("INDUSTRY", "hvac")
-DB_PATH = os.getenv("DB_PATH", "voice_agent.db")
+cfg = load_config(CONFIG_PATH)
+PROVIDERS = create_all_providers(cfg)
+LLM = PROVIDERS["llm"]
+STT = PROVIDERS["stt"]
+TTS = PROVIDERS["tts"]
+SMS = PROVIDERS["sms"]
+MEMORY = PROVIDERS["memory"]
 
+from agent_store import (  # noqa: E402
+    DEFAULT_AGENT_ID,
+    VOICES,
+    all_agents,
+    get_agent,
+    create_agent,
+    build_system_prompt,
+)
 
-def get_db():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
-
-
-@contextmanager
-def get_cursor():
-    db = get_db()
-    cursor = db.cursor()
-    try:
-        yield cursor
-        db.commit()
-    finally:
-        db.close()
-
-
-def init_db():
-    db = get_db()
-    c = db.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS calls (
-        id TEXT PRIMARY KEY, from_phone TEXT, to_phone TEXT,
-        duration REAL DEFAULT 0, status TEXT DEFAULT 'in_progress',
-        transcript TEXT DEFAULT '', intent TEXT DEFAULT '',
-        outcome TEXT DEFAULT '', recording_url TEXT DEFAULT '',
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
-    c.execute("""CREATE TABLE IF NOT EXISTS appointments (
-        id TEXT PRIMARY KEY, call_id TEXT, customer_name TEXT,
-        customer_phone TEXT, service_type TEXT, scheduled_time TEXT,
-        status TEXT DEFAULT 'pending', notes TEXT DEFAULT '',
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
-    c.execute("""CREATE TABLE IF NOT EXISTS customers (
-        id TEXT PRIMARY KEY, phone TEXT UNIQUE, name TEXT,
-        total_calls INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
-    db.commit()
-    db.close()
-
-init_db()
+# ---- in-memory session store (per preview-link visitor) ----
+SESSIONS: dict[str, list] = {}
+BOOKED: set[str] = set()
+MAX_HISTORY = 10
 
 
-class AppointmentCreate(BaseModel):
-    customer_name: str
-    customer_phone: str
-    service_type: str
-    scheduled_time: str
-    notes: str = ""
+def get_session(sid: str) -> list:
+    return SESSIONS.setdefault(sid, [])
 
+
+def persist_booking(agent_id: str, service: str, time_slot: str, name: str) -> None:
+    import sqlite3
+
+    db_path = cfg.get("server", {}).get("db_path", "voice_agent.db")
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """INSERT INTO appointments (id, call_id, customer_name, customer_phone,
+           service_type, scheduled_time, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (
+            str(uuid.uuid4()),
+            agent_id,
+            name or "Walk-in",
+            "",
+            service,
+            time_slot,
+            "pending",
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+BOOK_RE = re.compile(r"\[BOOK:\s*([^|]+)\|([^|]+)\|([^\]]+)\]", re.IGNORECASE)
+
+
+async def run_agent_turn(sid: str, text: str, agent_id: str = DEFAULT_AGENT_ID) -> tuple[str, str | None]:
+    agent = get_agent(agent_id) or get_agent(DEFAULT_AGENT_ID)
+    session = get_session(sid)
+    session.append(Message(role="user", content=text))
+
+    messages = [Message(role="system", content=build_system_prompt(agent))] + session[-MAX_HISTORY:]
+    result = await LLM.chat(messages)
+    reply = result.content.strip()
+
+    booking = None
+    m = BOOK_RE.search(reply)
+    if m:
+        service, time_slot, name = m.group(1).strip(), m.group(2).strip(), m.group(3).strip()
+        if sid not in BOOKED:
+            persist_booking(agent_id, service, time_slot, name)
+            BOOKED.add(sid)
+            booking = (service, time_slot, name)
+        reply = BOOK_RE.sub("", reply).strip()
+
+    session.append(Message(role="assistant", content=reply))
+    return reply, booking
+
+
+# ============ pages ============
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "service": "SMB Voice Agent v2", "industry": INDUSTRY}
+    return {"status": "ok", "service": "SMB Voice Agent Creator", "version": "2.2.0"}
 
 
 @app.get("/health")
 async def health():
-    gemini_ok = bool(os.getenv("GEMINI_API_KEY"))
     return {
         "status": "healthy",
-        "version": "2.0.0",
-        "industry": INDUSTRY,
-        "gemini_configured": gemini_ok,
-        "agents": ["receptionist", "booking", "faq", "emergency"],
-        "providers": {"llm": "gemini" if gemini_ok else "ollama (fallback)", "tts": "edge_tts", "stt": "whisper"},
+        "version": "2.2.0",
+        "llm": type(LLM).__name__,
+        "stt": type(STT).__name__,
+        "tts": type(TTS).__name__,
+        "sessions": len(SESSIONS),
+        "agents": len(all_agents()),
     }
 
 
-@app.post("/api/appointments")
-async def create_appointment(apt: AppointmentCreate):
-    apt_id = str(uuid.uuid4())
-    with get_cursor() as c:
-        c.execute("""INSERT INTO appointments (id, customer_name, customer_phone, service_type, scheduled_time, notes)
-                     VALUES (?, ?, ?, ?, ?, ?)""",
-                  (apt_id, apt.customer_name, apt.customer_phone, apt.service_type, apt.scheduled_time, apt.notes))
-    return {"id": apt_id, "status": "created"}
+@app.get("/call")
+async def call_page():
+    page = os.path.join(os.path.dirname(__file__), "..", "web", "call.html")
+    return FileResponse(page)
 
 
-@app.get("/api/calls")
-async def list_calls(limit: int = 50):
-    with get_cursor() as c:
-        c.execute("SELECT * FROM calls ORDER BY created_at DESC LIMIT ?", (limit,))
-        cols = [col[0] for col in c.description]
-        return {"calls": [dict(zip(cols, row)) for row in c.fetchall()]}
+@app.get("/configure")
+async def configure_page():
+    page = os.path.join(os.path.dirname(__file__), "..", "web", "configure.html")
+    return FileResponse(page)
 
 
-@app.get("/api/stats")
-async def get_stats():
-    with get_cursor() as c:
-        c.execute("SELECT COUNT(*) FROM calls"); total = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM appointments"); bookings = c.fetchone()[0]
-        today = datetime.utcnow().date().isoformat()
-        c.execute("SELECT COUNT(*) FROM calls WHERE date(created_at) = ?", (today,)); today_ct = c.fetchone()[0]
-        c.execute("""SELECT intent, COUNT(*) as cnt FROM calls WHERE intent != ''
-                     GROUP BY intent ORDER BY cnt DESC LIMIT 5""")
-        top_intents = [{"intent": r[0], "count": r[1]} for r in c.fetchall()]
-    return {"total_calls": total, "appointments_booked": bookings, "calls_today": today_ct, "top_intents": top_intents}
+# ============ agent configurator ============
+
+@app.get("/api/agents")
+async def agents_list():
+    agents = all_agents()
+    return [
+        {
+            "id": a["id"],
+            "name": a["name"],
+            "industry": a["industry"],
+            "services": a["services"],
+            "voice": a["voice"],
+            "language": a["language"],
+            "greeting": a["greeting"],
+            "preview": f"/call?agent={a['id']}",
+        }
+        for a in agents.values()
+    ]
 
 
-# ── Demo HTTP endpoints (for dev, real calls use LiveKit Agents) ──
-
-from providers import load_config, create_all_providers
-
-DEMO_CFG = load_config()
-DEMO_PROVIDERS = create_all_providers(DEMO_CFG)
-DEMO_BIZ = {
-    "name": "CoolAir Services", "industry": "hvac",
-    "services": ["AC Repair", "AC Installation", "AC Servicing", "AC Gas Refilling"],
-    "hours": "8 AM to 8 PM, Monday to Sunday",
-}
+@app.get("/api/agent/{agent_id}")
+async def agent_get(agent_id: str):
+    agent = get_agent(agent_id)
+    if not agent:
+        return {"error": "not found"}
+    return agent
 
 
-class VoiceRequest(BaseModel):
-    text: str
+@app.post("/api/agent")
+async def agent_create(
+    name: str = Form(...),
+    industry: str = Form("general"),
+    tagline: str = Form("AI receptionist"),
+    services: str = Form(""),
+    pricing: str = Form(""),
+    hours: str = Form(""),
+    emergency: str = Form(""),
+    voice: str = Form("en-US-AriaNeural"),
+    language: str = Form("hinglish"),
+    greeting: str = Form(""),
+    never_do: str = Form(""),
+    kb: str = Form(""),
+):
+    agent = create_agent({
+        "id": "",  # minted from name
+        "name": name,
+        "industry": industry,
+        "tagline": tagline,
+        "services": services,
+        "pricing": pricing,
+        "hours": hours,
+        "emergency": emergency,
+        "voice": voice,
+        "language": language,
+        "greeting": greeting,
+        "never_do": never_do,
+        "kb": kb,
+    })
+    return {"id": agent["id"], "preview": f"/call?agent={agent['id']}", "agent": agent}
 
 
-@app.post("/api/voice")
-async def voice_endpoint(req: VoiceRequest):
-    from providers.base import Message
-    result = await DEMO_PROVIDERS["llm"].chat([Message(role="user", content=req.text)])
-    response_text = result.content
-    audio_url = None
-    audio_size = 0
-    mp3_data = await DEMO_PROVIDERS["tts"].synthesize(response_text)
-    if mp3_data:
-        os.makedirs("/tmp/smb_voice_audio", exist_ok=True)
-        fd, path = tempfile.mkstemp(suffix=".mp3", dir="/tmp/smb_voice_audio")
-        os.write(fd, mp3_data)
-        os.close(fd)
-        audio_url = f"/api/audio/{os.path.basename(path)}"
-        audio_size = len(mp3_data)
-    return {"transcript": req.text, "intent": "demo", "response": response_text, "audio_url": audio_url, "audio_size": audio_size, "gemini_used": True}
+@app.get("/api/voices")
+async def voices():
+    return VOICES
 
+
+# ============ voice endpoints ============
 
 @app.get("/api/audio/{filename}")
 async def get_audio(filename: str):
-    audio_path = os.path.join("/tmp/smb_voice_audio", filename)
-    if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
-        return StreamingResponse(open(audio_path, "rb"), media_type="audio/mpeg")
-    from fastapi import HTTPException
-    raise HTTPException(status_code=404, detail="Audio not found")
+    audio_dir = "/tmp/smb_voice_audio"
+    path = os.path.join(audio_dir, filename)
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        return StreamingResponse(open(path, "rb"), media_type="audio/mpeg")
+    return {"error": "not found"}
 
 
-@app.get("/api/business-context")
-async def business_context():
-    return DEMO_BIZ
+@app.post("/api/voice/audio")
+async def voice_audio(
+    session_id: str = Form(""),
+    agent_id: str = Form(""),
+    audio: UploadFile = File(...),
+):
+    sid = session_id or str(uuid.uuid4())
+    agent = get_agent(agent_id) or get_agent(DEFAULT_AGENT_ID)
+    data = await audio.read()
+    if not data:
+        return {"error": "empty audio", "session_id": sid}
+
+    transcript = await STT.transcribe(data)
+    reply, booking = await run_agent_turn(sid, transcript, agent["id"])
+
+    # per-agent voice
+    from providers.tts import EdgeTTS
+
+    tts = EdgeTTS(voice=agent.get("voice", "en-US-AriaNeural"))
+    mp3 = await tts.synthesize(reply)
+    audio_url = None
+    if mp3:
+        os.makedirs("/tmp/smb_voice_audio", exist_ok=True)
+        path = os.path.join("/tmp/smb_voice_audio", f"{uuid.uuid4().hex}.mp3")
+        with open(path, "wb") as f:
+            f.write(mp3)
+        audio_url = f"/api/audio/{os.path.basename(path)}"
+
+    return {
+        "session_id": sid,
+        "agent_id": agent["id"],
+        "agent_name": agent["name"],
+        "transcript": transcript,
+        "response": reply,
+        "audio_url": audio_url,
+        "booking": list(booking) if booking else None,
+    }
+
+
+@app.post("/api/voice")
+async def voice_text(session_id: str = Form(""), agent_id: str = Form(""), text: str = Form("")):
+    if not text:
+        return {"error": "text required"}
+    sid = session_id or str(uuid.uuid4())
+    reply, booking = await run_agent_turn(sid, text, agent_id)
+    return {"session_id": sid, "response": reply, "booking": list(booking) if booking else None}
+
+
+@app.get("/api/appointments")
+async def appointments():
+    import sqlite3
+
+    db_path = cfg.get("server", {}).get("db_path", "voice_agent.db")
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("SELECT * FROM appointments ORDER BY created_at DESC LIMIT 30").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8090")))

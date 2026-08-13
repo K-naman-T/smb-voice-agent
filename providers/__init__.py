@@ -6,7 +6,7 @@ from .base import (
     LLMProvider, STTProvider, TTSProvider,
     CalendarProvider, SMSProvider, MemoryProvider,
 )
-from .llm import GeminiLLM, OllamaLLM
+from .llm import GeminiLLM, OllamaLLM, LlamaServerLLM
 from .stt import WhisperSTT, BrowserSTT
 from .tts import EdgeTTS, PiperTTS
 from .calendar import CalComProvider
@@ -30,6 +30,8 @@ def create_llm(config: dict) -> LLMProvider:
         return GeminiLLM(**cfg)
     elif provider == "ollama":
         return OllamaLLM(**cfg)
+    elif provider == "llama_server":
+        return LlamaServerLLM(**cfg)
     raise ValueError(f"Unknown LLM provider: {provider}")
 
 
