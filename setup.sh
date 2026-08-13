@@ -45,7 +45,7 @@ else
 fi
 
 # ── Load env vars ───────────────────────────────────────────────────────────
-ENV_FILE="$HOME/projects/smb-voice-agent/.env"
+ENV_FILE="$HOME/smb-voice-agent/.env"
 if [ -f "$ENV_FILE" ]; then
     echo "✓ Loading env from $ENV_FILE"
     set -a
@@ -62,7 +62,7 @@ TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
 
 # AI Services
 SARVAM_API_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY="${GEMINI_API_KEY:-}"  # set your own key in env
 MINIMAX_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Business

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+memory.db
+memory.json
+voice_agent.db
+node_modules/
+dist/
+agents_registry.json
+*.bak
+config.local.toml

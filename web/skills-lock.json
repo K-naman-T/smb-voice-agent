@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "voice-agents": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/ai-research/voice-agents/SKILL.md",
+      "computedHash": "aee3497119cb45bb5c51bb2dd0076c5a3a04da1c4103d8e18268c2fee4fa324f"
+    }
+  }
+}

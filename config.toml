@@ -1,0 +1,38 @@
+[server]
+host = "0.0.0.0"
+port = 8000
+livekit_url = "ws://localhost:7880"
+livekit_api_key = ""
+livekit_api_secret = ""
+
+[agents]
+receptionist_prompt = "agents/instructions/receptionist.md"
+booking_prompt = "agents/instructions/booking.md"
+faq_prompt = "agents/instructions/faq.md"
+emergency_prompt = "agents/instructions/emergency.md"
+
+[providers]
+llm = "gemini"
+stt = "whisper"
+tts = "edge_tts"
+calendar = "cal_com"
+sms = "console"
+memory = "sqlite_vec"
+
+[llm.gemini]
+model = "gemini-2.0-flash"
+api_key = ""
+
+[stt.whisper]
+model = "base"
+device = "cpu"
+
+[tts.edge_tts]
+voice = "en-US-AriaNeural"
+
+[calendar.cal_com]
+api_url = "https://api.cal.com/v1"
+api_key = ""
+
+[memory.sqlite_vec]
+db_path = "memory.db"
