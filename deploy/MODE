@@ -1,0 +1,4 @@
+# deploy/MODE — single source of truth for runtime topology
+# Used by compose/systemd, the API startup, and CI gates.
+# Valid values: compose | systemd
+compose

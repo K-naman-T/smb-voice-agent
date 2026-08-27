@@ -1,0 +1,193 @@
+# deploy/docker-compose.yml — chomp runtime stack
+#
+# Topology (chomp, RTX 4060 8GB):
+#   api, worker, web, postgres, livekit, llama-server
+# Optional: coturn (only if mobile claim is enabled).
+#
+# Bindings:
+#   - llama-server binds 127.0.0.1:8081 only, requires --api-key.
+#   - api binds 127.0.0.1:8090 (Tailscale with key for remote).
+#   - web binds 127.0.0.1:3090.
+#   - postgres loopback.
+#
+# Privacy (I7): internal network `voice_net` is the only network for runtime services.
+# No public egress is exposed for worker or llama-server.
+
+name: smb-voice-agent
+
+x-restart-policy: &restart
+  restart: unless-stopped
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "5"
+
+services:
+  postgres:
+    <<: [*restart, *logging]
+    image: postgres:16-alpine
+    container_name: voice-postgres
+    environment:
+      POSTGRES_USER: voice
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: voice
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - voice_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voice -d voice"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  llama-server:
+    <<: [*restart, *logging]
+    image: ghcr.io/ggerganov/llama.cpp:server-cuda
+    container_name: voice-llama
+    # The pinned image digest is required by §2.2.2 (chomp-gpu.lock).
+    # Replace with the actual pinned digest for your CUDA matrix.
+    command:
+      - "llama-server"
+      - "--model"
+      - "/models/${LLAMA_MODEL_FILE}"
+      - "--host"
+      - "127.0.0.1"
+      - "--port"
+      - "8081"
+      - "--ctx-size"
+      - "${LLAMA_CTX_SIZE:-4096}"
+      - "--n-gpu-layers"
+      - "${LLAMA_N_GPU_LAYERS:-99}"
+      - "--parallel"
+      - "${LLAMA_PARALLEL:-1}"
+      - "--jinja"
+      - "--api-key"
+      - "${LLAMA_API_KEY}"
+      - "--metrics"
+    ports:
+      # Internal-only. Do not expose to host network.
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ${LLAMA_MODELS_DIR}:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - voice_net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-H", "Authorization: Bearer ${LLAMA_API_KEY}", "http://127.0.0.1:8081/v1/models"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  api:
+    <<: [*restart, *logging]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    container_name: voice-api
+    environment:
+      DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-local-private}
+      DATABASE_URL: postgresql+asyncpg://voice:${POSTGRES_PASSWORD}@postgres:5432/voice
+      LLAMA_BASE_URL: http://llama-server:8081/v1
+      LLAMA_API_KEY: ${LLAMA_API_KEY}
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      EGRESS_ALLOWLIST: ${EGRESS_ALLOWLIST:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      llama-server:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${API_PORT:-8090}:8090"
+    networks:
+      - voice_net
+
+  worker:
+    <<: [*restart, *logging]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.worker
+    container_name: voice-worker
+    environment:
+      DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-local-private}
+      DATABASE_URL: postgresql+asyncpg://voice:${POSTGRES_PASSWORD}@postgres:5432/voice
+      LLAMA_BASE_URL: http://llama-server:8081/v1
+      LLAMA_API_KEY: ${LLAMA_API_KEY}
+      LIVEKIT_URL: ws://livekit:7880
+      API_URL: http://api:8090
+      EGRESS_ALLOWLIST: ${EGRESS_ALLOWLIST:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MAX_CONCURRENT_SESSIONS: ${MAX_CONCURRENT_SESSIONS:-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      llama-server:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - voice_net
+
+  livekit:
+    <<: [*restart, *logging]
+    image: livekit/livekit-server:latest
+    container_name: voice-livekit
+    command: --dev
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    ports:
+      - "127.0.0.1:${LIVEKIT_HTTP_PORT:-7880}:7880"
+      - "127.0.0.1:${LIVEKIT_RTC_TCP_PORT:-7881}:7881"
+      - "${LIVEKIT_UDP_PORT_RANGE:-50000-50100}:50000-50100/udp"
+    networks:
+      - voice_net
+
+  web:
+    <<: [*restart, *logging]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    container_name: voice-web
+    environment:
+      API_URL: http://api:8090
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3090}:3090"
+    networks:
+      - voice_net
+
+  coturn:
+    <<: [*restart, *logging]
+    image: coturn/coturn:latest
+    container_name: voice-coturn
+    profiles: ["mobile"]                    # opt-in only; mobile is not a v1 claim
+    command: >
+      --realm=${COTURN_REALM:-voice.local}
+      --listening-port=3478
+      --use-auth-secret
+      --static-auth-secret=${COTURN_SHARED_SECRET}
+      --no-tls --no-dtls
+    networks:
+      - voice_net
+
+networks:
+  voice_net:
+    driver: bridge
+    internal: false                         # host-internal only via 127.0.0.1 bindings
+
+volumes:
+  postgres-data:

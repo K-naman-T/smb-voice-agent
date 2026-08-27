@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "updated": "2026-08-11",
+  "models": [
+    {
+      "id": "llm.chomp.fast",
+      "kind": "llm",
+      "runtime": "llama.cpp",
+      "filename": "qwen2.5-3b-instruct-q4_k_m.gguf",
+      "url": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 2400,
+      "ctx_size": 4096,
+      "purpose": "Default LLM profile for chomp (Q4_K_M or better if tool_json bake-off < 0.99).",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "llm.chomp.balanced",
+      "kind": "llm",
+      "runtime": "llama.cpp",
+      "filename": "qwen2.5-7b-instruct-q4_k_m.gguf",
+      "url": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 5200,
+      "ctx_size": 4096,
+      "purpose": "7B profile; requires Whisper on CPU or unloaded during LLM decode.",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "stt.whisper.small",
+      "kind": "stt",
+      "runtime": "faster-whisper",
+      "filename": "small",
+      "sha256": null,
+      "min_vram_mb": 900,
+      "purpose": "Default STT (faster-whisper 'small', int8_float16).",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "tts.piper.en",
+      "kind": "tts",
+      "runtime": "piper",
+      "filename": "en_US-amy-low.onnx",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 0,
+      "purpose": "English TTS voice (Piper, CPU).",
+      "license": "MIT"
+    },
+    {
+      "id": "tts.piper.hi",
+      "kind": "tts",
+      "runtime": "piper",
+      "filename": "hi_IN-speech_low.onnx",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 0,
+      "purpose": "Hindi TTS voice (Piper, CPU); opt-in via FEATURE_HINDI_PROFILE.",
+      "license": "MIT"
+    }
+  ],
+  "notes": [
+    "Every model entry must have a real sha256 (no nulls) before going live.",
+    "scripts/download-models.sh --verify refuses to download anything not in this manifest.",
+    "scripts/verify-models.sh recomputes sha256 of every installed file on every boot and refuses on mismatch."
+  ]
+}

@@ -45,7 +45,7 @@ else
 fi
 
 # ── Load env vars ───────────────────────────────────────────────────────────
-ENV_FILE="$HOME/projects/smb-voice-agent/.env"
+ENV_FILE="$HOME/smb-voice-agent/.env"
 if [ -f "$ENV_FILE" ]; then
     echo "✓ Loading env from $ENV_FILE"
     set -a

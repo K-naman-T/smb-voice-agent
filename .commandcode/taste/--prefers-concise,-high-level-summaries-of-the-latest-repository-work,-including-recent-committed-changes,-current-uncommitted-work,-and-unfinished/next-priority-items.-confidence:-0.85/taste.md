@@ -1,0 +1,8 @@
+# - Prefers concise, high-level summaries of the latest repository work, including recent committed changes, current uncommitted work, and unfinished/next-priority items. Confidence: 0.85
+- Prefers concise, high-level summaries of the latest repository work, including recent committed changes, current uncommitted work, and unfinished/next-priority items. Confidence: 0.85
+- Values continuing toward a genuinely shippable product rather than stopping at planning or prototype work. Confidence: 0.9
+- Prefers a comprehensive first release that includes the planned platform capabilities, rather than narrowing v1 to a small demo or thin vertical slice. Confidence: 0.95
+- Wants the online Chomp host, reachable over Tailscale, used for real runtime, GPU, browser, and deployment validation—not only mocked or local development checks. Confidence: 0.95
+- Prefers Mimo v2.5 subagents as the execution model—specifically Command Code’s `xiaomi/mimo-v2.5` route when available—organized into focused ownership lanes with integration and review controls. Confidence: 0.97
+- Prefers tooling and model-routing claims to be verified against effective Command Code configuration or runtime evidence rather than inferred. Confidence: 0.9
+- Prefers keeping OpenCode configuration and execution separate from the assistant’s own Command Code subagents; do not repurpose or alter OpenCode when changing the assistant’s subagent model. Confidence: 0.97
