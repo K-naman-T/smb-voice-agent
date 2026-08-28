@@ -102,8 +102,13 @@ FORBIDDEN_PROVIDERS: list[_ProviderDef] = [
     ),
     _ProviderDef(
         name="ollama",
+        # Ollama's default port is 11434. Match that specifically so we
+        # don't false-positive on the v2 llama-server defaults
+        # (http://127.0.0.1:8081, etc.). The `OLLAMA_HOST` env_pattern
+        # below is the canonical signal; this URL pattern is a backstop
+        # for a stray `base_url: http://localhost:11434` in a config.
         url_patterns=[
-            re.compile(r"https?://(?:localhost|127\.0\.0\.1):\d+", re.I),
+            re.compile(r"https?://(?:localhost|127\.0\.0\.1):11434(?:/|$)", re.I),
             re.compile(r"https?://(?:.*\.)?ollama\.com", re.I),
         ],
         env_patterns=["OLLAMA_HOST"],

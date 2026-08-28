@@ -4,4 +4,6 @@
 - Wants the online Chomp host, reachable over Tailscale, used for real runtime, GPU, browser, and deployment validation—not only mocked or local development checks. Confidence: 0.95
 - Prefers Mimo v2.5 subagents as the execution model—specifically Command Code’s `xiaomi/mimo-v2.5` route when available—organized into focused ownership lanes with integration and review controls. Confidence: 0.97
 - Prefers tooling and model-routing claims to be verified against effective Command Code configuration or runtime evidence rather than inferred. Confidence: 0.9
+- When prior research or planning selected a model, library, or tool, the user expects re-evaluation against current on-host artifacts and the latest available model families; stale selections (e.g. an older-generation LLM when a newer one is already on disk) should be flagged and replaced rather than carried forward. Confidence: 0.9
 - Prefers keeping OpenCode configuration and execution separate from the assistant’s own Command Code subagents; do not repurpose or alter OpenCode when changing the assistant’s subagent model. Confidence: 0.97
+- Before executing a non-trivial phase, prefers an "eagle's-eye" review pass that produces both a high-level plan (milestones, structure, gates) and a low-level plan (file-level changes, scripts, tests) before any code is written. Confidence: 0.85
