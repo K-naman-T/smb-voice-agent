@@ -6,6 +6,7 @@ import {
   Check, ChevronRight, FileCode, Layers
 } from 'lucide-react';
 import { AcousticVisualizer, VisualizerMode, AgentVoiceState } from './components/AcousticVisualizer';
+import { BusinessPortal } from './components/BusinessPortal';
 
 // Mechanical click synthesizer via Web Audio API
 const playMechanicalClick = (pitch = 1200) => {
@@ -137,6 +138,7 @@ interface SimulatorMessage {
 }
 
 export default function App() {
+  const [viewMode, setViewMode] = useState<'business' | 'engineering'>('business');
   const [activeTab, setActiveTab] = useState<'config' | 'certify' | 'appointments' | 'calls' | 'schematic'>('config');
   const [selectedKitId, setSelectedKitId] = useState<string>('hvac');
   const [kits, setKits] = useState(DEFAULT_KITS);
@@ -360,6 +362,22 @@ export default function App() {
         setVoiceState('idle');
       }, 2400);
     }, 650);
+  };
+
+  const handleAddAppointmentDirect = (customerName: string, customerPhone: string, serviceName: string) => {
+    playMechanicalClick(1400);
+    const code = 'APT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    const newApt: Appointment = {
+      id: Math.random().toString(),
+      customer: customerName,
+      phone: customerPhone,
+      service: serviceName,
+      time: 'Tomorrow, 10:00 AM IST',
+      code,
+      status: 'COMMITTED'
+    };
+    setAppointments((prev) => [newApt, ...prev]);
+    showToast('Reservation Persisted', `Committed slot code ${code} into SQLite`, 'success');
   };
 
   const handleCreateAppointment = (e: React.FormEvent) => {
@@ -602,6 +620,78 @@ export default function App() {
 
       {/* Main Console Chassis */}
       <div className="max-w-7xl mx-auto space-y-4">
+        {/* Top Persona Switcher */}
+        <div className="hardware-panel rounded-xl p-2.5 px-4 flex flex-wrap items-center justify-between gap-3 bg-[#0d1017] border border-white/10 shadow-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-white/40 font-semibold mr-1">
+              INTERFACE VIEW:
+            </span>
+            <div className="inline-flex rounded-lg bg-black/60 p-1 border border-white/10">
+              <button
+                onClick={() => { playMechanicalClick(1400); setViewMode('business'); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  viewMode === 'business'
+                    ? 'bg-gradient-to-r from-[#ff5722] to-[#f4511e] text-white shadow-md'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <span>💼 Business Owner Portal</span>
+              </button>
+              <button
+                onClick={() => { playMechanicalClick(1200); setViewMode('engineering'); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  viewMode === 'engineering'
+                    ? 'bg-[#3b82f6] text-white shadow-md'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <span>⚡ Engineering Rack Console</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <span className="text-white/40 text-[10px] uppercase">Industry Kit:</span>
+              <select
+                value={selectedKitId}
+                onChange={(e) => {
+                  playMechanicalClick(1100);
+                  setSelectedKitId(e.target.value);
+                }}
+                className="bg-black/50 border border-white/10 rounded-md px-2.5 py-1 text-xs text-white focus:outline-none focus:border-[#ff5722]"
+              >
+                <option value="hvac">HVAC Services (CoolAir)</option>
+                <option value="plumbing">Plumbing (QuickFix)</option>
+                <option value="electrician">Electrical (BrightSpark)</option>
+                <option value="pest_control">Pest Control (SafeShield)</option>
+              </select>
+            </div>
+
+            <div className="hidden lg:flex items-center gap-2 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Direct SIP Live</span>
+            </div>
+          </div>
+        </div>
+
+        {viewMode === 'business' ? (
+          <BusinessPortal
+            businessName={businessName}
+            phone={phone}
+            operatingHours={operatingHours}
+            services={activeKit.services}
+            pricing={activeKit.pricing}
+            neverDo={activeKit.neverDo}
+            appointments={appointments}
+            onOpenConsole={() => {
+              playMechanicalClick(1200);
+              setViewMode('engineering');
+            }}
+            onAddAppointment={handleAddAppointmentDirect}
+          />
+        ) : (
+          <>
         {/* TOP HEADER: RACK UNIT SPEC BAR */}
         <header className="hardware-panel rounded-xl p-3 sm:p-4 flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-3">
@@ -1436,6 +1526,8 @@ export default function App() {
             )}
           </section>
         </div>
+          </>
+        )}
       </div>
     </div>
   );
