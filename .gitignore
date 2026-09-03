@@ -35,3 +35,8 @@ artifacts/
 .vscode/
 .idea/
 .DS_Store
+
+# Screenshots & visual test runs
+*screenshot*.png
+*_screens/
+*_screenshots/
