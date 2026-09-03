@@ -56,6 +56,13 @@ def create_all() -> None:
     Base.metadata.create_all(_engine)
 
 
+def init_db(database_url: str) -> Engine:
+    """Convenience helper to initialize engine and create all tables."""
+    engine = init_engine(database_url)
+    create_all()
+    return engine
+
+
 def reset_engine() -> None:
     """Drop the engine and session factory. Used by tests."""
     global _engine, _SessionLocal
@@ -87,8 +94,16 @@ def session_scope() -> Iterator[Session]:
         session.close()
 
 
-def get_session() -> Session:
-    """FastAPI dependency: returns a session that the caller is expected to close."""
+def get_session() -> Iterator[Session]:
+    """FastAPI dependency: yields a session, commits on success, rolls back on error."""
     if _SessionLocal is None:
         raise RuntimeError("init_engine must be called first")
-    return _SessionLocal()
+    session = _SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

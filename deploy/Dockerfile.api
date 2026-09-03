@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install python dependencies
+COPY packages /app/packages
+COPY apps/api /app/apps/api
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    pydantic \
+    sqlalchemy \
+    httpx \
+    psycopg2-binary
+
+ENV PYTHONPATH="/app/packages:/app/apps/api"
+EXPOSE 8190
+
+CMD ["python", "-m", "voice_api.main"]

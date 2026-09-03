@@ -1,0 +1,20 @@
+[Unit]
+Description=Colocated llama-server for SMB Voice Agent
+After=network.target
+
+[Service]
+Type=simple
+User=knamant
+WorkingDirectory=/home/knamant/models/qwen3.5-9b
+EnvironmentFile=/home/knamant/smb-voice-agent/deploy/.env
+ExecStart=/opt/llama.cpp/build/bin/llama-server \
+  -m /home/knamant/models/qwen3.5-9b/Qwen3.5-9B-Q4_K_M.gguf \
+  --host 127.0.0.1 --port 8083 \
+  -ngl 99 -c 4096 --parallel 1 --jinja \
+  --api-key ${LLAMA_API_KEY} \
+  --metrics
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

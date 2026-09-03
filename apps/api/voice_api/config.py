@@ -26,9 +26,9 @@ def _env(key: str, default: Optional[str] = None) -> Optional[str]:
 class Settings:
     deployment_mode: DeploymentMode = DeploymentMode.LOCAL_PRIVATE
     api_host: str = "127.0.0.1"
-    api_port: int = 8090
+    api_port: int = 8190
     database_url: str = "sqlite:///./var/dev.sqlite3"
-    llama_base_url: str = "http://127.0.0.1:8081/v1"
+    llama_base_url: str = "http://127.0.0.1:8083/v1"
     llama_api_key: str = ""
     livekit_url: str = "ws://127.0.0.1:7880"
     livekit_api_key: str = ""
@@ -61,11 +61,11 @@ def load_settings() -> Settings:
     settings = Settings(
         deployment_mode=mode,
         api_host=_env("API_HOST", "127.0.0.1") or "127.0.0.1",
-        api_port=int(_env("API_PORT", "8090") or "8090"),
+        api_port=int(_env("API_PORT", "8190") or "8190"),
         database_url=_env("DATABASE_URL", "sqlite:///./var/dev.sqlite3")
         or "sqlite:///./var/dev.sqlite3",
-        llama_base_url=_env("LLAMA_BASE_URL", "http://127.0.0.1:8081/v1")
-        or "http://127.0.0.1:8081/v1",
+        llama_base_url=_env("LLAMA_BASE_URL", "http://127.0.0.1:8083/v1")
+        or "http://127.0.0.1:8083/v1",
         llama_api_key=_env("LLAMA_API_KEY", "") or "",
         livekit_url=_env("LIVEKIT_URL", "ws://127.0.0.1:7880") or "ws://127.0.0.1:7880",
         livekit_api_key=_env("LIVEKIT_API_KEY", "") or "",

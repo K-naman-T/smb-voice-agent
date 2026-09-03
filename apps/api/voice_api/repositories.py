@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Optional
+from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
 
+from voice_api.auth import generate_api_key
 from voice_api.models import (
     Agent,
     AgentVersionRecord,
@@ -20,6 +21,7 @@ from voice_api.models import (
     AuditEvent,
     Business,
     Call,
+    Tenant,
 )
 
 

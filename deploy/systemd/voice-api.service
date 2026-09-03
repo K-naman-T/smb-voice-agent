@@ -1,0 +1,16 @@
+[Unit]
+Description=Control Plane API for SMB Voice Agent
+After=network.target voice-llama.service
+
+[Service]
+Type=simple
+User=knamant
+WorkingDirectory=/home/knamant/smb-voice-agent
+EnvironmentFile=/home/knamant/smb-voice-agent/deploy/.env
+Environment=PYTHONPATH=/home/knamant/smb-voice-agent/packages:/home/knamant/smb-voice-agent/apps/api
+ExecStart=/usr/bin/python3 -m voice_api.main
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
