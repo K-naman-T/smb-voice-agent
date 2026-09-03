@@ -1,8 +1,8 @@
 {
-  "nvidia_driver": "595.x",
+  "nvidia_driver": "595.84",
   "cuda_arch": "89",
-  "cuda_runtime": "12.6",
-  "llama_cpp_git_sha": "PIN_BEFORE_BUILD",
+  "cuda_runtime": "13.2",
+  "llama_cpp_git_sha": "fc6545d",
   "llama_server_path": ".tools/llama.cpp/build/bin/llama-server",
   "llama_server_image": "ghcr.io/ggerganov/llama.cpp:server-cuda@sha256:PIN_BEFORE_DEPLOY",
   "ctranslate2_version": "PIN",
@@ -13,6 +13,8 @@
   "notes": [
     "Fields marked PIN_BEFORE_* must be set by scripts/build-llama.sh and scripts/verify-models.sh before runtime start.",
     "The compose_config_digest is sha256 over the canonicalized compose + env file at build time.",
-    "Hash mismatches at boot must cause a hard refusal (I5)."
-  ]
+    "Hash mismatches at boot must cause a hard refusal (I5).",
+    "llm_sha256 is the sha256 of the pinned default model (Qwen3.5-9B-Q4_K_M.gguf) verified by scripts/discover_chomp.sh."
+  ],
+  "llm_sha256": "cd76ec205963b3b33350093e6904d9de16c4e666fd104e1f632d25c7f15f2a13"
 }

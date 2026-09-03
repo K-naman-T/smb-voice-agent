@@ -14,7 +14,7 @@ Agency-oriented **voice agent creator** (honest scope: local demo + self-deploy 
 
 ## Host
 
-chomp · 4060 8GB · llama-server `127.0.0.1:8081` · API `8090` · avoid ports 3000/8000/8080/4096  
+chomp · 4060 8GB (driver 595.84 / CUDA 13.2) · Qwen3.5-9B-Chat · llama-server `127.0.0.1:8083` · API `8190` · avoid ports 3000/8000/8080/4096  
 
 ## Next
 

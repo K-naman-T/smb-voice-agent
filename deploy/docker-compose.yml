@@ -5,9 +5,9 @@
 # Optional: coturn (only if mobile claim is enabled).
 #
 # Bindings:
-#   - llama-server binds 127.0.0.1:8081 only, requires --api-key.
-#   - api binds 127.0.0.1:8090 (Tailscale with key for remote).
-#   - web binds 127.0.0.1:3090.
+#   - llama-server binds 127.0.0.1:8083 only, requires --api-key.
+#   - api binds 127.0.0.1:8190 (Tailscale with key for remote).
+#   - web binds 127.0.0.1:3190.
 #   - postgres loopback.
 #
 # Privacy (I7): internal network `voice_net` is the only network for runtime services.
@@ -57,7 +57,7 @@ services:
       - "--host"
       - "127.0.0.1"
       - "--port"
-      - "8081"
+      - "8083"
       - "--ctx-size"
       - "${LLAMA_CTX_SIZE:-4096}"
       - "--n-gpu-layers"
@@ -70,7 +70,7 @@ services:
       - "--metrics"
     ports:
       # Internal-only. Do not expose to host network.
-      - "127.0.0.1:8081:8081"
+      - "127.0.0.1:8083:8083"
     volumes:
       - ${LLAMA_MODELS_DIR}:/models:ro
     deploy:
@@ -83,7 +83,7 @@ services:
     networks:
       - voice_net
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "-H", "Authorization: Bearer ${LLAMA_API_KEY}", "http://127.0.0.1:8081/v1/models"]
+      test: ["CMD", "curl", "-fsS", "-H", "Authorization: Bearer ${LLAMA_API_KEY}", "http://127.0.0.1:8083/v1/models"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -98,7 +98,7 @@ services:
     environment:
       DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-local-private}
       DATABASE_URL: postgresql+asyncpg://voice:${POSTGRES_PASSWORD}@postgres:5432/voice
-      LLAMA_BASE_URL: http://llama-server:8081/v1
+      LLAMA_BASE_URL: http://llama-server:8083/v1
       LLAMA_API_KEY: ${LLAMA_API_KEY}
       LIVEKIT_URL: ws://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
@@ -111,7 +111,7 @@ services:
       llama-server:
         condition: service_healthy
     ports:
-      - "127.0.0.1:${API_PORT:-8090}:8090"
+      - "127.0.0.1:${API_PORT:-8190}:8190"
     networks:
       - voice_net
 
@@ -124,10 +124,10 @@ services:
     environment:
       DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-local-private}
       DATABASE_URL: postgresql+asyncpg://voice:${POSTGRES_PASSWORD}@postgres:5432/voice
-      LLAMA_BASE_URL: http://llama-server:8081/v1
+      LLAMA_BASE_URL: http://llama-server:8083/v1
       LLAMA_API_KEY: ${LLAMA_API_KEY}
       LIVEKIT_URL: ws://livekit:7880
-      API_URL: http://api:8090
+      API_URL: http://api:8190
       EGRESS_ALLOWLIST: ${EGRESS_ALLOWLIST:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       MAX_CONCURRENT_SESSIONS: ${MAX_CONCURRENT_SESSIONS:-1}
@@ -162,11 +162,11 @@ services:
       dockerfile: deploy/Dockerfile.web
     container_name: voice-web
     environment:
-      API_URL: http://api:8090
+      API_URL: http://api:8190
     depends_on:
       - api
     ports:
-      - "127.0.0.1:${WEB_PORT:-3090}:3090"
+      - "127.0.0.1:${WEB_PORT:-3190}:3190"
     networks:
       - voice_net
 

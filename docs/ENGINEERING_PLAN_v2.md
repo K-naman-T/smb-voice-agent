@@ -53,10 +53,10 @@
 ```
 CONTROL PLANE                          CALL PLANE (chomp only)
 ─────────────                          ──────────────────────
-GUI (3090)                             LiveKit SFU (7880+)
-API (8090) ──AuthZ──►                  Session worker
+GUI (3190)                             LiveKit SFU (7880+)
+API (8190) ──AuthZ──►                  Session worker
   AgentVersion store                     VAD · STT · turn machine
-  Compiler · Sim · Certify               LLM client → llama-server :8081
+  Compiler · Sim · Certify               LLM client → llama-server :8083
   Appointments · Calls                   TTS Piper (CPU)
   Privacy map (runtime-backed)           Tool state machine
 ```
@@ -94,24 +94,28 @@ Brief → Compiler → draft AgentVersion
 
 ## 2. Low-level design
 
-### 2.1 Measured ports (chomp 2026-08-11)
+### 2.1 Measured ports (chomp 2026-08-28)
 
 | Occupied | Service |
 |----------|---------|
 | 3000 | getrole-web |
 | 8000 | getrole-api |
 | 8080 | uvicorn (other) |
+| 8090 | **unknown listener** (do not use) |
 | 4096 | OpenCode web |
 | 5432 | postgres loopback |
 
 | Ours | Bind | Port |
 |------|------|------|
-| Control API | default **127.0.0.1**; Tailscale only with key | **8090** |
-| GUI | 127.0.0.1 / TS | **3090** |
+| Control API | default **127.0.0.1**; Tailscale only with key | **8190** |
+| GUI | 127.0.0.1 / TS | **3190** |
 | LiveKit | 0.0.0.0 | **7880**, **7881**, UDP **50000–50100** |
-| **llama-server** | **127.0.0.1 only** | **8081** |
+| **llama-server** | **127.0.0.1 only** | **8083** |
 | coturn (required for mobile claim) | 127.0.0.1 or host | **3478** |
 | Optional STT sidecar | 127.0.0.1 | **8091** |
+
+> **Note (M0.5):** Qwable-9B service was replaced by Qwen3.5-9B-Chat on port 8083.
+> Port 8090 is occupied by an unknown listener; API moved to 8190.
 
 ### 2.2 llama.cpp (not Ollama)
 
@@ -151,7 +155,7 @@ Download: `scripts/download-models.sh --verify` only.
 ```bash
 llama-server \
   --model /abs/path/model.gguf \
-  --host 127.0.0.1 --port 8081 \
+  --host 127.0.0.1 --port 8083 \
   --ctx-size 4096 \
   --n-gpu-layers 99 \
   --parallel 1 \
@@ -163,7 +167,7 @@ llama-server \
 ```
 
 **UNIX user `llama`:** model files `0640` root:llama; worker in group `llama`.  
-Base URL: `http://127.0.0.1:8081/v1`  
+Base URL: `http://127.0.0.1:8083/v1`  
 Model id: **exactly** `/v1/models` reported id (often stem of filename).
 
 #### 2.2.5 Stream vs tools (v1.1 — product-correct)
@@ -553,7 +557,7 @@ If a new audit finds a Critical not covered, update this file before code.
 | ID | Decision |
 |----|----------|
 | D-LLM | llama.cpp not Ollama |
-| D-PORT | llama **8081** |
+| D-PORT | llama **8083** |
 | D-STREAM | tool_choice none for stream; tools phase-gated |
 | D-CERT | certified-logic vs certified-acoustic |
 | D-BOOK | PROPOSED→CONFIRMED→COMMITTED |

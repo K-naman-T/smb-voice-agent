@@ -75,6 +75,7 @@ DOC_ALLOW_FILES = {
     "scripts/verify_p0.py",
     "packages/privacy/forbidden_providers.py",
     "packages/runtime_contracts/deployment.py",
+    "tests/unit/test_forbidden_providers.py",
 }
 
 
