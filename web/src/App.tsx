@@ -1,5 +1,5 @@
-import { SarvamVoiceAgentPlatform } from "./components/sarvam/SarvamVoiceAgentPlatform";
+import { LinearVoiceStudio } from "./components/linear/LinearVoiceStudio";
 
 export default function App() {
-  return <SarvamVoiceAgentPlatform />;
+  return <LinearVoiceStudio />;
 }
