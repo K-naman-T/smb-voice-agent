@@ -1,5 +1,5 @@
-import { ExecutiveDashboard } from "./components/ExecutiveDashboard";
+import { SarvamVoiceAgentPlatform } from "./components/sarvam/SarvamVoiceAgentPlatform";
 
 export default function App() {
-  return <ExecutiveDashboard />;
+  return <SarvamVoiceAgentPlatform />;
 }
