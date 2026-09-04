@@ -1,98 +1,58 @@
 @import "tailwindcss";
 
 :root {
-  --chassis-bg: #0b0d13;
-  --module-slate: #141722;
-  --module-dark: #0f1118;
-  --bezel-border: rgba(255, 255, 255, 0.09);
-  --recessed-bg: #07080d;
-  --signal-orange: #ff5722;
-  --phosphor-green: #10b981;
-  --cyber-amber: #f59e0b;
-  --signal-blue: #3b82f6;
-  --fg-primary: #e6e8ee;
-  --fg-muted: rgba(230, 232, 238, 0.5);
+  --bg-main: #080a11;
+  --bg-card: #0e121d;
+  --bg-card-hover: #141a29;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-active: rgba(99, 102, 241, 0.5);
+  --accent-indigo: #6366f1;
+  --accent-emerald: #10b981;
+  --accent-cyan: #06b6d4;
+  --accent-amber: #f59e0b;
 }
 
-body {
-  background-color: var(--chassis-bg);
-  color: var(--fg-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-  overflow-x: hidden;
-  background-image: 
-    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(11, 13, 19, 0.8), #0b0d13);
-  background-size: 20px 20px, 100% 100%;
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--bg-main);
+  color: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Machined hardware module */
-.hardware-panel {
-  background: var(--module-slate);
-  border: 1px solid var(--bezel-border);
-  box-shadow: 
-    0 1px 0 rgba(255, 255, 255, 0.08) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.6) inset,
-    0 4px 20px rgba(0, 0, 0, 0.4);
-  position: relative;
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
-/* Recessed instrument screen */
-.recessed-display {
-  background: var(--recessed-bg);
-  border: 1px solid rgba(0, 0, 0, 0.8);
-  box-shadow: 
-    0 2px 5px rgba(0, 0, 0, 0.8) inset,
-    0 0 1px rgba(255, 255, 255, 0.1);
+/* Polished modern card surfaces */
+.card-surface {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
 }
 
-/* Tactile push button */
-.btn-tactile {
-  transition: all 0.08s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 1px 0 rgba(255, 255, 255, 0.15) inset,
-    0 2px 0 rgba(0, 0, 0, 0.4);
+.card-surface:hover {
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
-.btn-tactile:active {
-  transform: translateY(1.5px);
-  box-shadow: 
-    0 1px 0 rgba(0, 0, 0, 0.3) inset,
-    0 0 0 transparent;
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
 }
-
-/* Stylized hardware screws */
-.chassis-screw {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #2a2e3d;
-  box-shadow: 
-    0 0.5px 0 rgba(255, 255, 255, 0.2) inset,
-    0 1px 1px rgba(0, 0, 0, 0.8);
-  position: relative;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
-
-.chassis-screw::after {
-  content: '';
-  position: absolute;
-  top: 2.5px;
-  left: 1px;
-  width: 4px;
-  height: 1px;
-  background: #11131a;
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
 }
-
-/* CRT / Phosphor screen scanline overlay */
-.scanlines {
-  background: linear-gradient(
-    rgba(18, 16, 16, 0) 50%, 
-    rgba(0, 0, 0, 0.25) 50%
-  ), linear-gradient(
-    90deg,
-    rgba(255, 0, 0, 0.03),
-    rgba(0, 255, 0, 0.01),
-    rgba(0, 0, 255, 0.03)
-  );
-  background-size: 100% 2px, 3px 100%;
-  pointer-events: none;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
