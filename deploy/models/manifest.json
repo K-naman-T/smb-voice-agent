@@ -27,6 +27,78 @@
       "license": "apache-2.0"
     },
     {
+      "id": "llm.qwen3_8.flash_next",
+      "kind": "llm",
+      "runtime": "llama.cpp",
+      "filename": "Qwen3.8-Flash-Next-MoE-Q4.gguf",
+      "url": "https://huggingface.co/Qwen/Qwen3.8-Flash-Next-GGUF/resolve/main/Qwen3.8-Flash-Next-MoE-Q4.gguf",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 4600,
+      "ctx_size": 8192,
+      "purpose": "125B/6B active MoE with Gated DeltaNet attention for sub-30ms TTFT in deep agentic tool loops.",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "llm.muse.glimmer",
+      "kind": "llm",
+      "runtime": "llama.cpp",
+      "filename": "Muse-Glimmer-30B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF/resolve/main/Muse-Glimmer-30B-Q4_K_M.gguf",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 14500,
+      "ctx_size": 8192,
+      "purpose": "Meta 30B agentic brain with autonomous failure recovery and multi-step tool execution.",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "llm.qwen2_5.coder_7b",
+      "kind": "llm",
+      "runtime": "llama.cpp",
+      "filename": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+      "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 4800,
+      "ctx_size": 4096,
+      "purpose": "Top BFCL v4 open-weight tool caller; zero-error structured JSON slot extraction.",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "llm.vibethinker.3b",
+      "kind": "llm",
+      "runtime": "llama.cpp",
+      "filename": "VibeThinker-3B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/models/VibeThinker-3B-GGUF/resolve/main/VibeThinker-3B-Q4_K_M.gguf",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 2100,
+      "ctx_size": 4096,
+      "purpose": "Ultra-compact 3B agentic model for multi-line concurrency on 8GB VRAM with <35ms TTFT.",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "s2s.nvidia.personaplex",
+      "kind": "s2s",
+      "runtime": "personaplex",
+      "filename": "personaplex-7b-v1-q4.gguf",
+      "url": "https://huggingface.co/Codes4Fun/personaplex-7b-v1-q4_k-GGUF",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 7264,
+      "ctx_size": 3000,
+      "purpose": "NVIDIA full-duplex speech-to-speech foundation model; verified 15.3 fps (1.22x real-time) on RTX 4060 with hybrid text+audio prompting.",
+      "license": "nvidia-open-model"
+    },
+    {
+      "id": "s2s.kyutai.moshi",
+      "kind": "s2s",
+      "runtime": "moshi",
+      "filename": "moshi-7b-mimi-q4.gguf",
+      "url": "https://huggingface.co/kyutai/moshiko-pytorch-bf16",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 5200,
+      "ctx_size": 4096,
+      "purpose": "Kyutai full-duplex conversational model with 24kHz Mimi neural codec and inner monologue.",
+      "license": "cc-by-4.0"
+    },
+    {
       "id": "stt.whisper.small",
       "kind": "stt",
       "runtime": "faster-whisper",
@@ -34,6 +106,69 @@
       "sha256": null,
       "min_vram_mb": 900,
       "purpose": "Default STT (faster-whisper 'small', int8_float16).",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "stt.whisper.turbo",
+      "kind": "stt",
+      "runtime": "faster-whisper",
+      "filename": "large-v3-turbo",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 2200,
+      "purpose": "Whisper Large-v3-Turbo; 809M params, 8x faster than large-v2, robust accented speech.",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "stt.moonshine",
+      "kind": "stt",
+      "runtime": "moonshine",
+      "filename": "moonshine-base.onnx",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 350,
+      "purpose": "Useful Sensors edge ASR; variable-length input (bypasses 30s padding), 5x faster on short utterances.",
+      "license": "MIT"
+    },
+    {
+      "id": "stt.sensevoice",
+      "kind": "stt",
+      "runtime": "funasr",
+      "filename": "sensevoice-small.onnx",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 400,
+      "purpose": "Alibaba FunAudioLLM SenseVoice; sub-50ms latency with caller emotion and audio event tags.",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "tts.kokoro.en",
+      "kind": "tts",
+      "runtime": "kokoro",
+      "filename": "kokoro-v0_19.onnx",
+      "url": "https://huggingface.co/hexgrad/Kokoro-82M",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 0,
+      "purpose": "Studio-grade natural prosody (82M params, CPU ONNX, 30x real-time). Replaces Piper.",
+      "license": "apache-2.0"
+    },
+    {
+      "id": "tts.chatterbox.turbo",
+      "kind": "tts",
+      "runtime": "chatterbox",
+      "filename": "chatterbox-turbo-350m.onnx",
+      "url": "https://huggingface.co/ResembleAI/Chatterbox-Turbo",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 800,
+      "purpose": "Sub-200ms conversational TTS with paralinguistic tag support ([laugh], [sigh], [cough]).",
+      "license": "MIT"
+    },
+    {
+      "id": "tts.cosyvoice.v2",
+      "kind": "tts",
+      "runtime": "cosyvoice",
+      "filename": "cosyvoice2-0.5b.onnx",
+      "url": "https://huggingface.co/FunAudioLLM/CosyVoice2-0.5B",
+      "sha256": "PIN_AT_DOWNLOAD",
+      "min_vram_mb": 1200,
+      "purpose": "Alibaba 0.5B streaming causal flow matching; zero-shot voice cloning and conversational fillers.",
       "license": "apache-2.0"
     },
     {

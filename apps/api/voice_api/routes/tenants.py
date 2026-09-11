@@ -6,6 +6,8 @@ first tenant. After that, all routes require Bearer auth.
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -104,3 +106,46 @@ def create_api_key_endpoint(
         prefix=prefix,
         scopes=req.scopes,
     )
+
+
+class ActiveSessionResponse(BaseModel):
+    tenant_id: str
+    tenant_name: str
+    api_key: str
+    agent_id: Optional[str] = None
+    version_id: Optional[str] = None
+    agent_status: Optional[str] = None
+
+
+@router.get("/session", response_model=ActiveSessionResponse)
+def get_or_create_active_session(session: Session = Depends(get_session)) -> ActiveSessionResponse:
+    """Return active tenant and valid API key for UI and local tooling."""
+    from voice_api.models import Agent, AgentVersionRecord
+
+    tenant = session.query(Tenant).order_by(Tenant.created_at.desc()).first()
+    if tenant is None:
+        tenant_id = create_tenant(session, name="CoolAir Services Mumbai")
+        tenant = session.query(Tenant).filter_by(id=tenant_id).first()
+
+    full_key, kid, prefix = create_api_key(session, tenant_id=tenant.id, scopes=ALL_SCOPES)
+
+    agent = session.query(Agent).filter_by(tenant_id=tenant.id).order_by(Agent.created_at.desc()).first()
+    agent_id = agent.id if agent else None
+    version = None
+    if agent_id:
+        version = (
+            session.query(AgentVersionRecord)
+            .filter_by(agent_id=agent_id)
+            .order_by(AgentVersionRecord.version.desc())
+            .first()
+        )
+
+    return ActiveSessionResponse(
+        tenant_id=tenant.id,
+        tenant_name=tenant.name,
+        api_key=full_key,
+        agent_id=agent_id,
+        version_id=version.id if version else None,
+        agent_status=version.status if version else None,
+    )
+

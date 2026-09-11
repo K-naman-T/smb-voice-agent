@@ -47,3 +47,46 @@ def test_all_industry_kits_exist():
         assert len(kit.services) > 0
         assert len(kit.pricing) > 0
         assert len(kit.never_do) > 0
+
+
+def test_compile_with_2026_agentic_moe():
+    """Verify compiler supports Qwen3.8 Flash Next MoE with Kokoro and SenseVoice."""
+    ver = compile_agent_version(
+        agent_id="agt_moe",
+        tenant_id="ten_moe",
+        industry="electrician",
+        model_id="llm.qwen3_8.flash_next",
+        stt_model_id="stt.sensevoice",
+        tts_model_id="tts.kokoro.en",
+        pipeline_mode="cascaded",
+        paralinguistic_tags=True,
+        autonomous_recovery=True,
+    )
+    assert ver.model_id == "llm.qwen3_8.flash_next"
+    assert ver.stt_model_id == "stt.sensevoice"
+    assert ver.tts_model_id == "tts.kokoro.en"
+    assert ver.pipeline_mode == "cascaded"
+    assert ver.paralinguistic_tags is True
+    assert ver.autonomous_recovery is True
+    assert ver.verify_checksum() is True
+
+
+def test_compile_full_duplex_personaplex():
+    """Verify compiler supports NVIDIA PersonaPlex-7B Full-Duplex S2S."""
+    ver = compile_agent_version(
+        agent_id="agt_s2s",
+        tenant_id="ten_s2s",
+        industry="hvac",
+        model_id="s2s.nvidia.personaplex",
+        stt_model_id="s2s.nvidia.personaplex",
+        tts_model_id="s2s.nvidia.personaplex",
+        pipeline_mode="full_duplex",
+        paralinguistic_tags=False,
+        autonomous_recovery=True,
+    )
+    assert ver.model_id == "s2s.nvidia.personaplex"
+    assert ver.pipeline_mode == "full_duplex"
+    assert ver.verify_checksum() is True
+    snapshot = ver.snapshot()
+    assert snapshot["model_id"] == "s2s.nvidia.personaplex"
+    assert snapshot["pipeline_mode"] == "full_duplex"

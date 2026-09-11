@@ -19,7 +19,7 @@ from agent_schema.lifecycle import validate_transition
 from agent_schema.models import AgentStatus
 from voice_api.auth import Principal, require_scope
 from voice_api.db import get_session
-from voice_api.models import AgentVersionRecord, CertifyRecord
+from voice_api.models import AgentVersionRecord, CertifyRecord, SimulationRun
 
 router = APIRouter(prefix="", tags=["certify"])
 
@@ -108,3 +108,113 @@ def run_certify(
         status=rec.status,
         created_at=now.isoformat(),
     )
+
+
+class SimulationRunRequest(BaseModel):
+    suite: str = "core"
+    seed: int = 0
+    score: float = 1.0
+    passed: bool = True
+    details: dict = {}
+
+
+class SimulationRunResponse(BaseModel):
+    id: str
+    tenant_id: str
+    version_id: str
+    suite: str
+    seed: int
+    score: float
+    passed: bool
+    details: dict
+    created_at: str
+
+
+@router.post(
+    "/agents/{agent_id}/versions/{version_id}/simulations",
+    response_model=SimulationRunResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def record_simulation_run(
+    agent_id: str,
+    version_id: str,
+    req: SimulationRunRequest,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_scope("certify:run")),
+) -> SimulationRunResponse:
+    """Record an agent simulation run and adversarial evaluation results."""
+    rec = (
+        session.query(AgentVersionRecord)
+        .filter(
+            AgentVersionRecord.id == version_id,
+            AgentVersionRecord.tenant_id == principal.tenant_id,
+        )
+        .first()
+    )
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "AgentVersion not found")
+
+    sim_id = f"sim_{uuid.uuid4().hex[:12]}"
+    now = dt.datetime.now(dt.timezone.utc)
+    sim = SimulationRun(
+        id=sim_id,
+        tenant_id=principal.tenant_id,
+        version_id=version_id,
+        suite=req.suite,
+        seed=req.seed,
+        score=req.score,
+        pass_=req.passed,
+        details=req.details,
+        created_at=now,
+    )
+    session.add(sim)
+    session.commit()
+    session.refresh(sim)
+
+    return SimulationRunResponse(
+        id=sim.id,
+        tenant_id=sim.tenant_id,
+        version_id=sim.version_id,
+        suite=sim.suite,
+        seed=sim.seed,
+        score=sim.score,
+        passed=sim.pass_,
+        details=sim.details or {},
+        created_at=sim.created_at.isoformat(),
+    )
+
+
+@router.get(
+    "/agents/{agent_id}/versions/{version_id}/simulations",
+    response_model=list[SimulationRunResponse],
+)
+def list_simulation_runs(
+    agent_id: str,
+    version_id: str,
+    session: Session = Depends(get_session),
+    principal: Principal = Depends(require_scope("certify:run")),
+) -> list[SimulationRunResponse]:
+    """List simulation runs for an agent version."""
+    runs = (
+        session.query(SimulationRun)
+        .filter(
+            SimulationRun.tenant_id == principal.tenant_id,
+            SimulationRun.version_id == version_id,
+        )
+        .order_by(SimulationRun.created_at.desc())
+        .all()
+    )
+    return [
+        SimulationRunResponse(
+            id=r.id,
+            tenant_id=r.tenant_id,
+            version_id=r.version_id,
+            suite=r.suite,
+            seed=r.seed,
+            score=r.score,
+            passed=r.pass_,
+            details=r.details or {},
+            created_at=r.created_at.isoformat(),
+        )
+        for r in runs
+    ]

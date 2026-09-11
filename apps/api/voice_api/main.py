@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from voice_api.config import load_settings
 from voice_api.db import init_db
-from voice_api.routes import agents, appointments, calls, certify, tenants
+from voice_api.routes import agents, appointments, calls, certify, models, stt, tenants
 
 settings = load_settings()
 
@@ -57,6 +57,8 @@ app.include_router(agents.router, prefix="/api/v1")
 app.include_router(appointments.router, prefix="/api/v1")
 app.include_router(calls.router, prefix="/api/v1")
 app.include_router(certify.router, prefix="/api/v1")
+app.include_router(stt.router, prefix="/api/v1")
+app.include_router(models.router, prefix="/api/v1")
 
 
 @app.on_event("startup")

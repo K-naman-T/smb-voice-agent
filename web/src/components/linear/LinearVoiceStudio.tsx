@@ -1,1128 +1,1698 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity,
-  Bot,
-  Calendar,
-  Check,
-  CheckCircle2,
-  Code2,
-  Copy,
-  Database,
-  Pause,
-  Phone,
-  PhoneCall,
-  PhoneIncoming,
-  PhoneOff,
-  Play,
-  Radio,
-  Send,
-  Shield,
-  ShieldCheck,
-  Sparkles,
-  Terminal,
-  Wrench,
-  Zap,
+  ArrowUpRight, BookOpen, CalendarDays, Check, ChevronDown, ChevronRight,
+  CircleHelp, Clock3, Copy, Cpu, Download, Gauge, Headphones, Layers, LayoutDashboard, Menu,
+  MessageSquareText, Mic, MicOff, MoreHorizontal, Pause, Phone, PhoneCall, PhoneOff,
+  Play, Plus, Radio, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles,
+  Volume2, X, Zap,
 } from "lucide-react";
-import { LinearAudioVisualizer, VoiceAgentState } from "./LinearAudioVisualizer";
+import { HolyWhiteVoiceOrb } from "../voice/HolyWhiteVoiceOrb";
+import { useVoiceCall, CallLogEntry, PresetContext, ActiveBackendSession } from "../voice/useVoiceCall";
 
-interface IndustryPreset {
-  id: string;
-  name: string;
-  businessName: string;
-  phone: string;
-  hours: string;
-  category: string;
-  services: { name: string; price: string; duration: string }[];
-  guardrails: { rule: string; type: "Compliance" | "Safety" | "Scope"; verified: boolean }[];
-  initialGreeting: string;
-}
+type NavKey = "overview" | "agent" | "calls";
+type EditorTab = "prompt" | "voice" | "engine" | "knowledge" | "rules";
 
-const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
-  hvac: {
-    id: "hvac",
-    name: "HVAC Services",
-    businessName: "CoolAir Telephony Services",
-    phone: "+91 98765 43210",
-    hours: "8:00 AM – 8:00 PM, Mon–Sat",
-    category: "Climate & Air Systems",
-    services: [
-      { name: "AC Diagnostic & Inspection", price: "₹500 visit", duration: "45 min" },
-      { name: "Deep Foam Jet Cleaning", price: "₹1,200 standard", duration: "60 min" },
-      { name: "R32 / R410A Eco Gas Refill", price: "₹2,400 per unit", duration: "45 min" },
-      { name: "Compressor Overhaul & Motor", price: "₹3,800 + parts", duration: "120 min" },
-    ],
-    guardrails: [
-      { rule: "Strictly reject booking outside 8:00 AM – 8:00 PM operational window", type: "Compliance", verified: true },
-      { rule: "Never quote fixed repair costs prior to physical technician inspection", type: "Compliance", verified: true },
-      { rule: "Never invent or offer uncataloged services like duct fabrication", type: "Scope", verified: true },
-    ],
-    initialGreeting:
-      "Namaste! Thank you for calling CoolAir Telephony Services. I am Maya, your AI receptionist. How may I assist you with your AC service or repair today?",
-  },
-  plumbing: {
-    id: "plumbing",
-    name: "Commercial Plumbing",
-    businessName: "QuickFix Hydronics",
-    phone: "+91 98123 45678",
-    hours: "7:00 AM – 9:00 PM, Mon–Sun",
-    category: "Sanitary & Water Infrastructure",
-    services: [
-      { name: "High-Pressure Pipe Leak Repair", price: "₹450 – ₹1,500", duration: "45 min" },
-      { name: "Hydro Drain Jetting Clean", price: "₹750 standard", duration: "60 min" },
-      { name: "Commercial Water Heater Service", price: "₹1,400", duration: "90 min" },
-      { name: "Main Line Valve Replacement", price: "₹1,800", duration: "90 min" },
-    ],
-    guardrails: [
-      { rule: "Never instruct callers to touch pressurized high-temp steam lines", type: "Safety", verified: true },
-      { rule: "Enforce strict operating hours (7:00 AM – 9:00 PM)", type: "Compliance", verified: true },
-      { rule: "Route water mains burst emergencies to on-duty human supervisor", type: "Safety", verified: true },
-    ],
-    initialGreeting:
-      "Hello! QuickFix Hydronics receptionist here. Are you experiencing an active water leak or would you like to schedule general plumbing maintenance?",
-  },
-  electrician: {
-    id: "electrician",
-    name: "Electrical Systems",
-    businessName: "BrightSpark Power Solutions",
-    phone: "+91 98345 67890",
-    hours: "8:00 AM – 7:00 PM, Mon–Sat",
-    category: "High & Low Voltage Grid",
-    services: [
-      { name: "Three-Phase Breaker Tripping Diagnostic", price: "₹400 standard", duration: "30 min" },
-      { name: "Concealed Wiring Short Detection", price: "₹850 inspection", duration: "60 min" },
-      { name: "Modular Switchboard Assembly", price: "₹350 per point", duration: "45 min" },
-      { name: "Inverter & Solar Grid Interfacing", price: "₹1,600 setup", duration: "120 min" },
-    ],
-    guardrails: [
-      { rule: "Never guide callers to touch live open electrical panels or busbars", type: "Safety", verified: true },
-      { rule: "Do not commit whole-building rewiring pricing over phone call", type: "Compliance", verified: true },
-    ],
-    initialGreeting:
-      "Namaste, BrightSpark Power Solutions. I can schedule an electrician or troubleshoot your electrical inquiry. What service do you need today?",
-  },
-  pest_control: {
-    id: "pest_control",
-    name: "Pest Defense",
-    businessName: "SafeShield BioDefense",
-    phone: "+91 98567 12349",
-    hours: "8:30 AM – 6:30 PM, Mon–Fri",
-    category: "Biological Protection",
-    services: [
-      { name: "Subterranean Termite Shield Drill", price: "₹3,500 1BHK", duration: "150 min" },
-      { name: "Odorless Gel Baiting System", price: "₹950 standard", duration: "45 min" },
-      { name: "Bed Bug Thermal & Chemical Treatment", price: "₹2,200", duration: "90 min" },
-    ],
-    guardrails: [
-      { rule: "Never prescribe off-label chemical formulations to callers", type: "Safety", verified: true },
-      { rule: "Strictly adhere to 8:30 AM – 6:30 PM working schedule", type: "Compliance", verified: true },
-    ],
-    initialGreeting:
-      "Welcome to SafeShield BioDefense. Are you calling regarding termite inspection, bed bugs, or general pest protection for your property?",
-  },
-};
-
-interface CallTurn {
-  id: string;
-  sender: "caller" | "agent";
-  text: string;
-  timestamp: string;
-  ttfaMs?: number;
-  toolInvocation?: { name: string; args: string; result: string };
-}
-
-interface HistoricalCall {
-  id: string;
-  caller: string;
-  timestamp: string;
-  duration: string;
-  intent: string;
-  ttfa: number;
-  status: "Booked" | "Completed" | "Escalated" | "Rejected";
-  toolUsed: string;
-  summary: string;
-}
-
-const HISTORICAL_CALLS: HistoricalCall[] = [
+const PRESETS: PresetContext[] = [
   {
-    id: "CALL-9842",
-    caller: "+91 98234 11200",
-    timestamp: "Today, 10:41 AM",
-    duration: "1m 34s",
-    intent: "AC Foam Jet Cleaning",
-    ttfa: 178,
-    status: "Booked",
-    toolUsed: "reserve_slot()",
-    summary: "Customer booked Deep Foam Jet Cleaning for tomorrow at 10:00 AM. Verified within 8 AM - 8 PM hours.",
+    id: "hvac", label: "HVAC service", business: "CoolAir Services",
+    phone: "+91 98765 43210", hours: "8:00 AM–8:00 PM, Mon–Sat",
+    greeting: "Namaste! You’ve reached CoolAir Services. I’m Svara. How can I help with your AC today?",
+    voice: "Svara · Warm & expressive",
+    services: [{ name: "AC inspection", price: "₹500" }, { name: "Deep foam cleaning", price: "₹1,200" }, { name: "Gas refill", price: "₹2,400" }],
+    rules: ["Never book outside operating hours", "Never quote repair cost before inspection", "Escalate electrical hazards"],
   },
   {
-    id: "CALL-9841",
-    caller: "+91 97110 44521",
-    timestamp: "Today, 09:18 AM",
-    duration: "2m 04s",
-    intent: "R32 Gas Refill Inquiry",
-    ttfa: 184,
-    status: "Completed",
-    toolUsed: "quote_rate()",
-    summary: "Inquired about R32 gas refill pricing. Agent quoted ₹2,400 standard per unit and explained technician visit diagnostic fee.",
+    id: "plumbing", label: "Plumbing", business: "QuickFix Plumbing",
+    phone: "+91 98123 45678", hours: "7:00 AM–9:00 PM, every day",
+    greeting: "Hello, you’ve reached QuickFix Plumbing. Is this an active leak or can I help schedule a visit?",
+    voice: "Aakash · Calm & direct",
+    services: [{ name: "Leak inspection", price: "₹450" }, { name: "Drain cleaning", price: "₹750" }, { name: "Water heater service", price: "₹1,400" }],
+    rules: ["Escalate burst water mains", "Never advise touching hot pressure lines", "Confirm address before dispatch"],
   },
   {
-    id: "CALL-9840",
-    caller: "+91 98450 88912",
-    timestamp: "Yesterday, 11:30 PM",
-    duration: "45s",
-    intent: "2 AM Night Service",
-    ttfa: 165,
-    status: "Rejected",
-    toolUsed: "check_hours()",
-    summary: "Caller requested 2:00 AM urgent visit. Safety invariant triggered: polite rejection and re-scheduled to 8:00 AM morning slot.",
-  },
-  {
-    id: "CALL-9839",
-    caller: "+91 96500 33145",
-    timestamp: "Yesterday, 04:12 PM",
-    duration: "1m 52s",
-    intent: "Duct Fabrication Request",
-    ttfa: 191,
-    status: "Escalated",
-    toolUsed: "escalate_to_human()",
-    summary: "Out-of-scope commercial duct manufacturing requested. Handed off to human project director with full transcript context.",
+    id: "electric", label: "Electrical", business: "BrightSpark Electric",
+    phone: "+91 98345 67890", hours: "8:00 AM–7:00 PM, Mon–Sat",
+    greeting: "Namaste, BrightSpark Electric here. I can arrange an electrician or answer a service question.",
+    voice: "Svara · Clear & polite",
+    services: [{ name: "Fault inspection", price: "₹400" }, { name: "Short detection", price: "₹850" }, { name: "Switchboard fitting", price: "₹350/point" }],
+    rules: ["Never give live-wire instructions", "Escalate smoke or sparking immediately", "No whole-home quotes by phone"],
   },
 ];
 
-export const LinearVoiceStudio: React.FC = () => {
-  // Navigation & view states
-  const [activeNav, setActiveNav] = useState<"agents" | "calls" | "tools" | "guardrails" | "telemetry">("agents");
-  const [selectedPresetKey, setSelectedPresetKey] = useState<string>("hvac");
-  const preset = INDUSTRY_PRESETS[selectedPresetKey] || INDUSTRY_PRESETS.hvac;
+const INITIAL_CALLS: CallLogEntry[] = [
+  { caller: "Amit Sharma", phone: "+91 98201 12345", time: "10:41 AM", duration: "1m 34s", outcome: "Appointment booked", tone: "positive" },
+  { caller: "Priya Mehta", phone: "+91 98450 99821", time: "9:18 AM", duration: "2m 04s", outcome: "Pricing shared", tone: "neutral" },
+  { caller: "Vikram Singh", phone: "+91 97110 44521", time: "Yesterday", duration: "45s", outcome: "Morning slot offered", tone: "neutral" },
+  { caller: "Sunita Rao", phone: "+91 99001 22334", time: "Yesterday", duration: "1m 52s", outcome: "Transferred to owner", tone: "positive" },
+];
 
-  // Studio tabs
-  const [studioTab, setStudioTab] = useState<"persona" | "voice" | "tools" | "invariants">("persona");
+interface ModelItem {
+  id: string;
+  name: string;
+  kind: "llm" | "stt" | "tts" | "s2s";
+  tag: string;
+  vramMb: number;
+  latencyStr: string;
+  desc: string;
+  recommended?: boolean;
+}
 
-  // Editable configurations
-  const [greetingText, setGreetingText] = useState(preset.initialGreeting);
-  const [voiceModel, setVoiceModel] = useState("Bulbul v2 Indic (Sarvam AI)");
-  const [voiceSpeed, setVoiceSpeed] = useState(1.0);
-  const [interruptionSensitivity, setInterruptionSensitivity] = useState(85);
-  const [isCopiedPhone, setIsCopiedPhone] = useState(false);
+interface StackPreset {
+  id: string;
+  title: string;
+  tag: string;
+  arch: "cascaded" | "full_duplex";
+  llm: string;
+  stt: string;
+  tts: string;
+  vramStr: string;
+  latencyStr: string;
+  desc: string;
+}
 
-  // Audio preview playing state
-  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+const ENGINE_STACK_PRESETS: StackPreset[] = [
+  {
+    id: "stack_agentic_moe",
+    title: "2026 Agentic MoE",
+    tag: "Deep Tool Loops",
+    arch: "cascaded",
+    llm: "llm.qwen3_8.flash_next",
+    stt: "stt.sensevoice",
+    tts: "tts.kokoro.en",
+    vramStr: "5.0 GB",
+    latencyStr: "280ms",
+    desc: "125B/6B active MoE with Gated DeltaNet attention, autonomous retry loops, and sub-30ms TTFT.",
+  },
+  {
+    id: "stack_personaplex",
+    title: "NVIDIA PersonaPlex-7B",
+    tag: "Full-Duplex S2S",
+    arch: "full_duplex",
+    llm: "s2s.nvidia.personaplex",
+    stt: "s2s.nvidia.personaplex",
+    tts: "s2s.nvidia.personaplex",
+    vramStr: "4.8 GB",
+    latencyStr: "170ms",
+    desc: "NVIDIA unified speech-to-speech foundation model with simultaneous listening and talking.",
+  },
+  {
+    id: "stack_deterministic_booking",
+    title: "Deterministic Booking Pro",
+    tag: "BFCL #1",
+    arch: "cascaded",
+    llm: "llm.qwen2_5.coder_7b",
+    stt: "stt.moonshine",
+    tts: "tts.kokoro.en",
+    vramStr: "5.1 GB",
+    latencyStr: "320ms",
+    desc: "Zero-error JSON slot filling, strict transactional state machine, and Kokoro studio naturalness.",
+  },
+  {
+    id: "stack_expressive_human",
+    title: "Expressive Concierge",
+    tag: "Acoustic Tags",
+    arch: "cascaded",
+    llm: "llm.chomp.fast",
+    stt: "stt.sensevoice",
+    tts: "tts.chatterbox.turbo",
+    vramStr: "3.6 GB",
+    latencyStr: "340ms",
+    desc: "Injects paralinguistic tags ([laugh], [sigh], [pause]) and detects caller emotion in real time.",
+  },
+  {
+    id: "stack_high_concurrency",
+    title: "Multi-Line Edge (8GB VRAM)",
+    tag: "3+ Phone Lines",
+    arch: "cascaded",
+    llm: "llm.vibethinker.3b",
+    stt: "stt.moonshine",
+    tts: "tts.kokoro.en",
+    vramStr: "2.4 GB",
+    latencyStr: "260ms",
+    desc: "Sub-25ms TTFT edge model for high-concurrency agency telephony on a single RTX 4060.",
+  },
+];
 
-  // Live Telephony Simulation State
-  const [isOnCall, setIsOnCall] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const [voiceAgentState, setVoiceAgentState] = useState<VoiceAgentState>("idle");
-  const [simulatedInput, setSimulatedInput] = useState("");
+export interface HardwareProfileItem {
+  id: string;
+  name: string;
+  shortName: string;
+  vramGb: number;
+  platform: string;
+  concurrency: number;
+  engine: string;
+  tag: string;
+  isPublicDemoDefault?: boolean;
+}
 
-  // Turns history
-  const [turns, setTurns] = useState<CallTurn[]>([
-    {
-      id: "t0",
-      sender: "agent",
-      text: preset.initialGreeting,
-      timestamp: "10:41:02 AM",
-      ttfaMs: 174,
-    },
-  ]);
+const HARDWARE_PROFILES: HardwareProfileItem[] = [
+  {
+    id: "cloud_l4_24gb",
+    name: "Public Cloud Demo (NVIDIA L4 / A10G — 24GB)",
+    shortName: "Cloud Demo (24GB)",
+    vramGb: 24.0,
+    platform: "AWS G5 / RunPod / Modal Cloud GPU",
+    concurrency: 12,
+    engine: "vLLM PagedAttention + CUDA 13.2",
+    tag: "Public Demo Tier",
+    isPublicDemoDefault: true,
+  },
+  {
+    id: "edge_rtx4060_8gb",
+    name: "Self-Hosted SMB Edge Box (RTX 4060 — 8GB)",
+    shortName: "SMB Edge (8GB)",
+    vramGb: 8.0,
+    platform: "On-Prem Dedicated Workstation (chomp)",
+    concurrency: 2,
+    engine: "llama.cpp GPU Offload (CUDA)",
+    tag: "On-Premises Private",
+  },
+  {
+    id: "apple_silicon_36gb",
+    name: "Apple Silicon Studio (M-Series Unified — 36GB)",
+    shortName: "Mac Studio (36GB)",
+    vramGb: 36.0,
+    platform: "Mac Studio / Mac Mini M2/M3/M4 Pro",
+    concurrency: 16,
+    engine: "Apple Metal / MLX Engine",
+    tag: "Office Desktop Server",
+  },
+  {
+    id: "client_webgpu",
+    name: "In-Browser Client Sandbox (WebGPU / WASM)",
+    shortName: "WebGPU Browser",
+    vramGb: 0.0,
+    platform: "Client Browser (Zero Server GPU Cost)",
+    concurrency: 999,
+    engine: "Web Audio + Web Speech API + WebGPU",
+    tag: "Zero-Cost Public Preview",
+  },
+  {
+    id: "enterprise_h100_80gb",
+    name: "Enterprise Cluster (NVIDIA H100 / A100 — 80GB)",
+    shortName: "Data Center (80GB)",
+    vramGb: 80.0,
+    platform: "Enterprise High-Density PBX Cluster",
+    concurrency: 48,
+    engine: "TensorRT-LLM + Triton Server",
+    tag: "High Density Fleet",
+  },
+];
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+const AVAILABLE_LLMS: ModelItem[] = [
+  { id: "llm.qwen3_8.flash_next", name: "Qwen 3.8 Flash-Next MoE (6B Active)", kind: "llm", tag: "Late Aug 2026", vramMb: 4600, latencyStr: "<30ms TTFT", desc: "Hybrid Gated DeltaNet attention for zero-lag deep tool loops.", recommended: true },
+  { id: "llm.qwen2_5.coder_7b", name: "Qwen 2.5-Coder 7B Instruct", kind: "llm", tag: "BFCL #1", vramMb: 4800, latencyStr: "~40ms TTFT", desc: "Top Berkeley Function Calling benchmark; zero schema errors.", recommended: true },
+  { id: "llm.muse.glimmer", name: "Meta Muse Glimmer 30B", kind: "llm", tag: "Superintelligence", vramMb: 14500, latencyStr: "~90ms TTFT", desc: "Meta's flagship local agent model with autonomous failure recovery." },
+  { id: "llm.chomp.fast", name: "Qwen 3.5 9B Chat (Default)", kind: "llm", tag: "Workhorse", vramMb: 4200, latencyStr: "~45ms TTFT", desc: "Default local profile for chomp; strong general reasoning." },
+  { id: "llm.vibethinker.3b", name: "VibeThinker 3B Edge", kind: "llm", tag: "Edge Concurrency", vramMb: 2100, latencyStr: "<25ms TTFT", desc: "Ultra-compact agent model enabling 3+ concurrent phone lines." },
+];
 
-  // Sync greeting when preset changes
+const AVAILABLE_STTS: ModelItem[] = [
+  { id: "stt.sensevoice", name: "SenseVoice-Small (Alibaba FunASR)", kind: "stt", tag: "Emotion Aware", vramMb: 400, latencyStr: "<50ms", desc: "Sub-50ms ASR with caller emotion detection (<happy>, <angry>).", recommended: true },
+  { id: "stt.moonshine", name: "Moonshine Edge ASR (Useful Sensors)", kind: "stt", tag: "Variable Length", vramMb: 350, latencyStr: "<40ms", desc: "Variable-length input; 5x faster on short turn-taking phrases.", recommended: true },
+  { id: "stt.whisper.turbo", name: "Whisper Large-v3-Turbo (809M)", kind: "stt", tag: "Accurate", vramMb: 2200, latencyStr: "~80ms", desc: "OpenAI distilled turbo ASR; superior accuracy on noisy phone audio." },
+  { id: "stt.whisper.small", name: "Faster-Whisper Small (Baseline)", kind: "stt", tag: "Standard", vramMb: 900, latencyStr: "~100ms", desc: "Standard baseline CTranslate2 transcription." },
+];
+
+const AVAILABLE_TTSS: ModelItem[] = [
+  { id: "tts.sarvam.bulbul_v3", name: "Sarvam AI Bulbul V3/V4", kind: "tts", tag: "Late 2026 Flagship", vramMb: 0, latencyStr: "<250ms", desc: "48kHz full-band studio audio, 11 Indian languages, 35+ voices, native Hinglish code-switching.", recommended: true },
+  { id: "tts.bodhan.indic23", name: "Bodhan AI / AI4Bharat (IIT Madras)", kind: "tts", tag: "Sep 2026 Open Weights", vramMb: 1800, latencyStr: "~180ms", desc: "Digital Public Good by IIT Madras & Ministry of Ed. 23 Indian languages, trained on NVIDIA NeMo.", recommended: true },
+  { id: "tts.svara.3b", name: "Svara-TTS 3B (Kenpath)", kind: "tts", tag: "Emotional SOTA", vramMb: 2400, latencyStr: "~220ms", desc: "3B parameter expressive Indic model supporting 19 languages with <happy>, <sad> emotion tokens.", recommended: true },
+  { id: "tts.hinglish.indicf5", name: "Hinglish-TTS (IndicF5 + IndicXlit)", kind: "tts", tag: "Flow Matching", vramMb: 1400, latencyStr: "~200ms", desc: "AI4Bharat IndicF5 architecture + transliteration layer for seamless Roman/Devanagari mixing.", recommended: true },
+  { id: "tts.kokoro.en", name: "Kokoro-82M Studio Voice", kind: "tts", tag: "English SOTA", vramMb: 0, latencyStr: "Instant", desc: "82M params, Apache 2.0, studio-grade prosody on CPU. Fixes robotic inflection for English.", recommended: true },
+  { id: "tts.chatterbox.turbo", name: "Chatterbox-Turbo (Resemble AI)", kind: "tts", tag: "Paralinguistic", vramMb: 800, latencyStr: "<200ms", desc: "Conversational TTS with [laugh], [sigh], and [pause] tags." },
+  { id: "tts.piper.hi_priyamvada", name: "Piper Neural Pooja (CPU Fallback)", kind: "tts", tag: "Edge Fallback", vramMb: 0, latencyStr: "~60ms", desc: "Lightweight VITS fallback on CPU when zero cloud or zero GPU VRAM is available." },
+];
+
+export interface VoicePersona {
+  id: string;
+  name: string;
+  lang: "hi" | "en-in" | "en-gb" | "en-us";
+  langLabel: string;
+  accent: string;
+  gender: "Female" | "Male";
+  tone: string;
+  engine: string;
+  ttsModelId: string;
+  previewUrl: string;
+  recommendedFor: string;
+  badge?: string;
+  badgeType?: "s2s" | "lang" | "normal";
+}
+
+export const VOICE_PERSONAS: VoicePersona[] = [
+  {
+    id: "svara_hindi",
+    name: "Svara (स्वरा)",
+    lang: "hi",
+    langLabel: "Hindi & Hinglish (हिंदी)",
+    accent: "Modern Expressive Hindi",
+    gender: "Female",
+    tone: "Emotional, natural cadence & warm breathing (<happy>)",
+    engine: "Svara-TTS v1 3B (Kenpath Orpheus)",
+    ttsModelId: "tts.svara.3b",
+    previewUrl: "/voices/preview_svara_hindi.mp3",
+    recommendedFor: "Human-grade Conversational Concierge & SMB Support",
+    badge: "3B Discrete Audio",
+    badgeType: "lang",
+  },
+  {
+    id: "f5_hindi",
+    name: "Aakash (F5-Hindi)",
+    lang: "hi",
+    langLabel: "Hindi & Hinglish (हिंदी)",
+    accent: "Flow-Matching 24kHz Studio",
+    gender: "Male",
+    tone: "Rich acoustics, natural pitch drift & fluid phrasing",
+    engine: "F5-TTS Hindi 24kHz (Flow Matching)",
+    ttsModelId: "tts.hinglish.indicf5",
+    previewUrl: "/voices/preview_f5_hindi.mp3",
+    recommendedFor: "Dispatch, Technical Support & Mixed Hinglish",
+    badge: "Flow Matching SOTA",
+    badgeType: "lang",
+  },
+  {
+    id: "pooja_hindi",
+    name: "Pooja (पूजा)",
+    lang: "hi",
+    langLabel: "Hindi & Hinglish (हिंदी)",
+    accent: "North Indian Metro / Delhi",
+    gender: "Female",
+    tone: "Warm, conversational & natural Hinglish",
+    engine: "Piper Neural / Sarvam Indic (hi_IN)",
+    ttsModelId: "tts.piper.hi_priyamvada",
+    previewUrl: "/voices/preview_hindi_female.mp3",
+    recommendedFor: "Clinics, HVAC & Home Services across India",
+    badge: "Popular in India",
+    badgeType: "lang",
+  },
+  {
+    id: "arjun_hindi",
+    name: "Arjun (अर्जुन)",
+    lang: "hi",
+    langLabel: "Hindi & Hinglish (हिंदी)",
+    accent: "Neutral Hindi / Indian English",
+    gender: "Male",
+    tone: "Authoritative, calm & clear",
+    engine: "Piper Neural / Sarvam Indic (hi_IN)",
+    ttsModelId: "tts.piper.hi_pratham",
+    previewUrl: "/voices/preview_hindi_male.mp3",
+    recommendedFor: "Plumbing, Field Dispatch & Logistics",
+    badge: "Direct & Clear",
+    badgeType: "lang",
+  },
+  {
+    id: "ananya_en_in",
+    name: "Ananya",
+    lang: "en-in",
+    langLabel: "Indian English (en-IN)",
+    accent: "Pan-India Urban Professional",
+    gender: "Female",
+    tone: "Articulate, corporate & polished",
+    engine: "Kokoro-82M / Sarvam Saaras",
+    ttsModelId: "tts.kokoro.en",
+    previewUrl: "/voices/preview_hindi_female.mp3",
+    recommendedFor: "B2B SaaS, Legal Concierge & Consulting",
+    badge: "Corporate SOTA",
+    badgeType: "normal",
+  },
+  {
+    id: "maya_us",
+    name: "Maya",
+    lang: "en-us",
+    langLabel: "US English (en-US)",
+    accent: "General American Neutral",
+    gender: "Female",
+    tone: "Friendly, upbeat & studio crisp",
+    engine: "Kokoro-82M (0 MB GPU VRAM)",
+    ttsModelId: "tts.kokoro.en",
+    previewUrl: "/voices/preview_us_female.mp3",
+    recommendedFor: "US Small Businesses, Dentists & Salons",
+    badge: "Zero-VRAM Studio",
+    badgeType: "normal",
+  },
+  {
+    id: "david_us",
+    name: "David",
+    lang: "en-us",
+    langLabel: "US English (en-US)",
+    accent: "American Casual Direct",
+    gender: "Male",
+    tone: "Confident, conversational & grounded",
+    engine: "Piper ONNX (Ryan)",
+    ttsModelId: "tts.piper.en_ryan",
+    previewUrl: "/voices/preview_us_male.mp3",
+    recommendedFor: "Towing, Auto Repair & HVAC Emergency",
+    badge: "High Energy",
+    badgeType: "normal",
+  },
+  {
+    id: "oliver_gb",
+    name: "Oliver",
+    lang: "en-gb",
+    langLabel: "British English (en-GB)",
+    accent: "Received Pronunciation (London RP)",
+    gender: "Male",
+    tone: "Refined, courteous & calm",
+    engine: "Piper ONNX (Alan)",
+    ttsModelId: "tts.piper.en_alan",
+    previewUrl: "/voices/preview_british_male.mp3",
+    recommendedFor: "Luxury Spas, Boutique Hotels & Finance",
+    badge: "British RP",
+    badgeType: "normal",
+  },
+  {
+    id: "personaplex_s2s",
+    name: "PersonaPlex NATF0",
+    lang: "en-us",
+    langLabel: "Speech-to-Speech (S2S)",
+    accent: "Conversational Adaptive",
+    gender: "Female",
+    tone: "Full-duplex unified acoustic token modeling",
+    engine: "NVIDIA PersonaPlex-7B (CUDA)",
+    ttsModelId: "s2s.nvidia.personaplex",
+    previewUrl: "/personaplex_sample.mp3",
+    recommendedFor: "Zero-Cascade Banter & Public Interactive Demos",
+    badge: "Next-Gen S2S",
+    badgeType: "s2s",
+  },
+];
+
+interface LinearVoiceStudioProps {
+  onExitStudio?: () => void;
+}
+
+export const LinearVoiceStudio: React.FC<LinearVoiceStudioProps> = ({ onExitStudio }) => {
+  const [activeNav, setActiveNav] = useState<NavKey>("overview");
+  const [editorTab, setEditorTab] = useState<EditorTab>("prompt");
+  const [presetId, setPresetId] = useState("hvac");
+  const [mobileNav, setMobileNav] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(true);
+  const [callHistory, setCallHistory] = useState<CallLogEntry[]>(INITIAL_CALLS);
+  const [backendSession, setBackendSession] = useState<ActiveBackendSession | undefined>();
+  const [realBookingsCount, setRealBookingsCount] = useState<number | null>(null);
+
+  const preset = useMemo(() => PRESETS.find((item) => item.id === presetId) || PRESETS[0], [presetId]);
+  const [greeting, setGreeting] = useState(preset.greeting);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  // Model & Engine Configuration State (Ultimate Configurator)
+  const [selectedHardwareProfile, setSelectedHardwareProfile] = useState("cloud_l4_24gb");
+  const [isPublicDemoMode, setIsPublicDemoMode] = useState(true);
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [deployModalTab, setDeployModalTab] = useState<"docker" | "apple" | "embed">("docker");
+  const [copiedDeployCode, setCopiedDeployCode] = useState(false);
+
+  const [selectedPresetStack, setSelectedPresetStack] = useState("stack_agentic_moe");
+  const [archMode, setArchMode] = useState<"cascaded" | "full_duplex">("cascaded");
+  const [selectedLlm, setSelectedLlm] = useState("llm.qwen3_8.flash_next");
+  const [selectedStt, setSelectedStt] = useState("stt.sensevoice");
+  const [selectedTts, setSelectedTts] = useState("tts.svara.3b");
+  const [failureRecovery, setFailureRecovery] = useState(true);
+  const [paralinguisticTags, setParalinguisticTags] = useState(true);
+  const [emotionSensing, setEmotionSensing] = useState(true);
+
+  // Voice Persona & Accent Studio State (ElevenLabs / Sarvam Parity)
+  const [selectedVoicePersonaId, setSelectedVoicePersonaId] = useState("svara_hindi");
+  const [voiceLangFilter, setVoiceLangFilter] = useState<"all" | "hi" | "en-in" | "en-gb" | "en-us">("all");
+  const [previewPlayingVoiceId, setPreviewPlayingVoiceId] = useState<string | null>(null);
+  const [voiceStability, setVoiceStability] = useState(78);
+  const [speakingPace, setSpeakingPace] = useState(1.0);
+  const [hinglishCodeSwitching, setHinglishCodeSwitching] = useState(true);
+  const [callerEmotionPacing, setCallerEmotionPacing] = useState(true);
+  const [ttsProvider, setTtsProvider] = useState<"sarvam" | "elevenlabs" | "kokoro" | "piper">("sarvam");
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
-    setGreetingText(preset.initialGreeting);
-    setTurns([
-      {
-        id: `t0-${preset.id}`,
-        sender: "agent",
-        text: preset.initialGreeting,
-        timestamp: "10:41:02 AM",
-        ttfaMs: 174,
-      },
-    ]);
-  }, [selectedPresetKey, preset]);
+    const audio = previewAudioRef.current;
+    if (!audio) return;
+    const onEnded = () => setPreviewPlayingVoiceId(null);
+    audio.addEventListener("ended", onEnded);
+    return () => audio.removeEventListener("ended", onEnded);
+  }, []);
 
-  // Call duration counter
-  useEffect(() => {
-    let timer: any;
-    if (isOnCall) {
-      timer = setInterval(() => {
-        setCallDuration((prev) => prev + 1);
-      }, 1000);
+  const toggleVoicePreview = (voice: VoicePersona, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (previewPlayingVoiceId === voice.id) {
+      previewAudioRef.current?.pause();
+      setPreviewPlayingVoiceId(null);
     } else {
-      setCallDuration(0);
-    }
-    return () => clearInterval(timer);
-  }, [isOnCall]);
-
-  // Auto-scroll turns
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [turns]);
-
-  const formatDuration = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const handleCopyPhone = () => {
-    navigator.clipboard.writeText(preset.phone);
-    setIsCopiedPhone(true);
-    setTimeout(() => setIsCopiedPhone(false), 2000);
-  };
-
-  const handleToggleCall = () => {
-    if (isOnCall) {
-      // Hang up
-      setIsOnCall(false);
-      setVoiceAgentState("idle");
-    } else {
-      // Start call
-      setIsOnCall(true);
-      setVoiceAgentState("speaking");
-      setTimeout(() => {
-        setVoiceAgentState("listening");
-      }, 2500);
-    }
-  };
-
-  const handleSendSimulatedSpeech = (textOverride?: string) => {
-    const textToSend = (textOverride || simulatedInput).trim();
-    if (!textToSend || !isOnCall) return;
-
-    const callerTurnId = `c-${Date.now()}`;
-    const callerMsg: CallTurn = {
-      id: callerTurnId,
-      sender: "caller",
-      text: textToSend,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-    };
-
-    setTurns((prev) => [...prev, callerMsg]);
-    setSimulatedInput("");
-    setVoiceAgentState("thinking");
-
-    // Dynamic response generation based on intent
-    setTimeout(() => {
-      const lower = textToSend.toLowerCase();
-      let responseText = "";
-      let toolCall: any = undefined;
-
-      if (lower.includes("clean") || lower.includes("tomorrow") || lower.includes("book") || lower.includes("slot")) {
-        responseText = `Certainly! I have scheduled your AC Deep Foam Jet Cleaning for tomorrow at 10:00 AM under reservation code SLOT-8921. Our verified technician will arrive with eco-safe chemicals. Is there any specific access note for the premises?`;
-        toolCall = {
-          name: "reserve_slot",
-          args: '{"service": "Deep Foam Jet Cleaning", "time": "Tomorrow 10:00 AM"}',
-          result: '{"status": "CONFIRMED", "slot_id": "SLOT-8921", "technician_id": "TECH-44"}',
-        };
-      } else if (lower.includes("2 am") || lower.includes("midnight") || lower.includes("night") || lower.includes("urgent")) {
-        responseText = `Our certified service operations run strictly between ${preset.hours}. I cannot schedule an on-site visit for 2:00 AM; however, I can lock in our earliest priority dispatch slot at 8:00 AM sharp tomorrow. Would you like me to reserve that for you?`;
-        toolCall = {
-          name: "verify_hours_invariant",
-          args: '{"requested_hour": "02:00", "window": "08:00-20:00"}',
-          result: '{"violation": true, "enforce": "REJECT_AND_OFFER_EARLIEST_SLOT"}',
-        };
-      } else if (lower.includes("price") || lower.includes("rate") || lower.includes("cost") || lower.includes("how much")) {
-        responseText = `Our diagnostic inspection is ₹500, and deep foam jet servicing is ₹1,200 standard. For gas refill, it is ₹2,400 per unit. We never quote firm internal repair prices before physical inspection. Shall I book an inspection for you?`;
-        toolCall = {
-          name: "quote_rate",
-          args: '{"service_type": "diagnostic_and_standard"}',
-          result: '{"rates": {"inspection": 500, "deep_clean": 1200, "gas_refill": 2400}}',
-        };
-      } else {
-        responseText = `I understand. I can immediately dispatch a certified technician or answer questions regarding our verified service rates. What time works best for your schedule?`;
+      if (previewAudioRef.current) {
+        previewAudioRef.current.src = voice.previewUrl;
+        previewAudioRef.current.play().then(() => setPreviewPlayingVoiceId(voice.id)).catch(() => {});
       }
-
-      setVoiceAgentState("speaking");
-      setTurns((prev) => [
-        ...prev,
-        {
-          id: `a-${Date.now()}`,
-          sender: "agent",
-          text: responseText,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-          ttfaMs: Math.floor(Math.random() * 25) + 172,
-          toolInvocation: toolCall,
-        },
-      ]);
-
-      setTimeout(() => {
-        if (isOnCall) {
-          setVoiceAgentState("listening");
-        }
-      }, 3000);
-    }, 900);
+    }
   };
+
+  const onSelectVoicePersona = (voice: VoicePersona) => {
+    setSelectedVoicePersonaId(voice.id);
+    setSelectedTts(voice.ttsModelId);
+    if (voice.ttsModelId === "s2s.nvidia.personaplex") {
+      setArchMode("full_duplex");
+      setSelectedLlm("s2s.nvidia.personaplex");
+    } else {
+      setArchMode("cascaded");
+      if (selectedLlm === "s2s.nvidia.personaplex") {
+        setSelectedLlm("llm.qwen3_8.flash_next");
+      }
+    }
+    setSaved(false);
+  };
+
+  const activeProfile = useMemo(
+    () => HARDWARE_PROFILES.find((p) => p.id === selectedHardwareProfile) || HARDWARE_PROFILES[0],
+    [selectedHardwareProfile]
+  );
+
+  const applyPresetStack = (p: StackPreset) => {
+    setSelectedPresetStack(p.id);
+    setArchMode(p.arch);
+    setSelectedLlm(p.llm);
+    setSelectedStt(p.stt);
+    setSelectedTts(p.tts);
+    setSaved(false);
+  };
+
+  // Dynamic Telemetry Metrics
+  const calculatedVram = useMemo(() => {
+    if (archMode === "full_duplex") return "4.8";
+    const llm = AVAILABLE_LLMS.find((m) => m.id === selectedLlm)?.vramMb || 4200;
+    const stt = AVAILABLE_STTS.find((m) => m.id === selectedStt)?.vramMb || 400;
+    const tts = AVAILABLE_TTSS.find((m) => m.id === selectedTts)?.vramMb || 0;
+    return ((llm + stt + tts) / 1024).toFixed(1);
+  }, [archMode, selectedLlm, selectedStt, selectedTts]);
+
+  const vramPercent = useMemo(() => {
+    if (activeProfile.vramGb === 0) return 0;
+    const used = parseFloat(calculatedVram);
+    return Math.min(100, Math.round((used / activeProfile.vramGb) * 100));
+  }, [activeProfile, calculatedVram]);
+
+  const calculatedConcurrency = useMemo(() => {
+    if (activeProfile.vramGb === 0) return "Unlimited";
+    const used = parseFloat(calculatedVram);
+    const remaining = activeProfile.vramGb - used;
+    if (remaining < 0.3) return "1 Line";
+    const concurrent = Math.max(1, Math.min(activeProfile.concurrency, Math.floor(remaining / 0.5) + 1));
+    return `${concurrent} Lines`;
+  }, [activeProfile, calculatedVram]);
+
+  const calculatedTtft = useMemo(() => {
+    if (archMode === "full_duplex") return "170ms (Audio S2S)";
+    return AVAILABLE_LLMS.find((m) => m.id === selectedLlm)?.latencyStr || "~45ms TTFT";
+  }, [archMode, selectedLlm]);
+
+  const calculatedTurnLatency = useMemo(() => {
+    if (archMode === "full_duplex") return "~170ms";
+    const presetStack = ENGINE_STACK_PRESETS.find((p) => p.id === selectedPresetStack);
+    return presetStack?.latencyStr || "~290ms";
+  }, [archMode, selectedPresetStack]);
+
+  useEffect(() => {
+    setGreeting(preset.greeting);
+    setSaved(true);
+  }, [preset]);
+
+  // Load real active session & calls from backend API
+  useEffect(() => {
+    fetch("/api/v1/auth/session")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((sess) => {
+        if (!sess) return;
+        setBackendSession({
+          tenantId: sess.tenant_id,
+          agentId: sess.agent_id,
+          versionId: sess.version_id,
+          apiKey: sess.api_key,
+        });
+
+        // Query real calls from backend DB
+        fetch("/api/v1/calls", {
+          headers: { Authorization: `Bearer ${sess.api_key}` },
+        })
+          .then((r) => (r.ok ? r.json() : []))
+          .then((dbCalls: Array<{ id: string; caller_phone: string; started_at: string; ended_at: string | null; status: string }>) => {
+            if (Array.isArray(dbCalls) && dbCalls.length > 0) {
+              const mapped: CallLogEntry[] = dbCalls.map((c) => {
+                let outcome = "Inquiry resolved";
+                let tone: "positive" | "neutral" | "urgent" = "neutral";
+                if (c.status === "appointment_booked") {
+                  outcome = "Appointment booked";
+                  tone = "positive";
+                } else if (c.status === "emergency_escalated") {
+                  outcome = "Transferred to emergency on-call";
+                  tone = "urgent";
+                } else if (c.status === "inquiry_resolved") {
+                  outcome = "Pricing & service catalog shared";
+                  tone = "neutral";
+                }
+
+                const d = new Date(c.started_at);
+                const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+                let durStr = "0m 45s";
+                if (c.ended_at) {
+                  const diffSec = Math.max(1, Math.round((new Date(c.ended_at).getTime() - d.getTime()) / 1000));
+                  durStr = diffSec >= 60 ? `${Math.floor(diffSec / 60)}m ${diffSec % 60}s` : `0m ${diffSec}s`;
+                }
+
+                return {
+                  id: c.id,
+                  caller: c.caller_phone ? `Caller (${c.caller_phone})` : "Customer",
+                  phone: c.caller_phone || "+91 98200 45678",
+                  time: timeStr,
+                  duration: durStr,
+                  outcome,
+                  tone,
+                };
+              });
+              setCallHistory(mapped);
+            }
+          })
+          .catch(() => {});
+
+        // Query real booked appointments
+        fetch("/api/v1/appointments", {
+          headers: { Authorization: `Bearer ${sess.api_key}` },
+        })
+          .then((r) => (r.ok ? r.json() : []))
+          .then((apts: any[]) => {
+            if (Array.isArray(apts)) {
+              setRealBookingsCount(apts.length);
+            }
+          })
+          .catch(() => {});
+      })
+      .catch(() => {});
+  }, []);
+
+  const onCallCompleted = (entry: CallLogEntry) => {
+    setCallHistory((prev) => [entry, ...prev]);
+  };
+
+  // Full-featured Real Voice Call Hook (Web Audio, SpeechRecognition, SpeechSynthesis, Barge-in, chomp LLM)
+  const {
+    callState,
+    agentState,
+    formatDuration,
+    turns,
+    interimText,
+    audioLevel,
+    isMuted,
+    micError,
+    startCall,
+    endCall,
+    toggleMute,
+    sendTurn,
+  } = useVoiceCall(preset, onCallCompleted, backendSession);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [turns, interimText]);
+
+  const copyPhone = async () => {
+    await navigator.clipboard?.writeText(preset.phone);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  };
+
+  const navigate = (key: NavKey) => {
+    setActiveNav(key);
+    setMobileNav(false);
+  };
+
+  const bookingsCount = useMemo(() => {
+    if (realBookingsCount !== null && realBookingsCount > 0) return realBookingsCount;
+    return callHistory.filter((c) => /book|appointment|reserved/i.test(c.outcome)).length;
+  }, [callHistory, realBookingsCount]);
 
   return (
-    <div className="flex h-screen max-h-screen w-screen bg-[#010102] text-[#f7f8f8] overflow-hidden select-none font-sans">
-      {/* ─────────────────────────────────────────────────────────────
-          1. LEFT NAVIGATION RAIL (Linear Style: Dense, 56 width, #080809)
-         ───────────────────────────────────────────────────────────── */}
-      <aside className="w-56 flex-shrink-0 bg-[#080809] border-r border-[#23252a] flex flex-col justify-between z-20">
+    <div className="app-shell">
+      <aside className={`sidebar ${mobileNav ? "sidebar--open" : ""}`}>
         <div>
-          {/* Workspace Switcher */}
-          <div className="h-12 border-b border-[#23252a] px-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-5 h-5 rounded bg-[#5e6ad2] flex items-center justify-center text-white shadow-sm flex-shrink-0">
-                <Radio className="w-3 h-3" />
-              </div>
-              <div className="flex flex-col truncate">
-                <span className="text-xs font-medium text-[#f7f8f8] truncate">Linear Voice Core</span>
-                <span className="text-[10px] text-[#8a8f98] font-mono">prod-us-east · v2.4</span>
-              </div>
-            </div>
-            <span className="text-[10px] font-mono bg-[#141516] text-[#27a644] px-1.5 py-0.5 rounded border border-[#23252a]">
-              LIVE
-            </span>
-          </div>
-
-          {/* Main Navigation Items */}
-          <div className="p-2 space-y-0.5">
-            <div className="px-2 pt-2 pb-1 text-[10px] font-medium tracking-wider uppercase text-[#62666d]">
-              Platform
-            </div>
-
-            <button
-              onClick={() => setActiveNav("agents")}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                activeNav === "agents"
-                  ? "bg-[#141516] text-[#f7f8f8] border border-[#23252a]"
-                  : "text-[#8a8f98] hover:text-[#d0d6e0] hover:bg-[#0f1011]"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Bot className={`w-3.5 h-3.5 ${activeNav === "agents" ? "text-[#5e6ad2]" : "text-[#8a8f98]"}`} />
-                <span>Voice Agents</span>
-              </div>
-              <span className="text-[10px] font-mono text-[#62666d]">G A</span>
-            </button>
-
-            <button
-              onClick={() => setActiveNav("calls")}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                activeNav === "calls"
-                  ? "bg-[#141516] text-[#f7f8f8] border border-[#23252a]"
-                  : "text-[#8a8f98] hover:text-[#d0d6e0] hover:bg-[#0f1011]"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <PhoneCall className={`w-3.5 h-3.5 ${activeNav === "calls" ? "text-[#5e6ad2]" : "text-[#8a8f98]"}`} />
-                <span>Call Logs & Audio</span>
-              </div>
-              <span className="text-[10px] font-mono bg-[#141516] px-1 rounded text-[#8a8f98]">102</span>
-            </button>
-
-            <button
-              onClick={() => setActiveNav("tools")}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                activeNav === "tools"
-                  ? "bg-[#141516] text-[#f7f8f8] border border-[#23252a]"
-                  : "text-[#8a8f98] hover:text-[#d0d6e0] hover:bg-[#0f1011]"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Wrench className={`w-3.5 h-3.5 ${activeNav === "tools" ? "text-[#5e6ad2]" : "text-[#8a8f98]"}`} />
-                <span>Tool Functions</span>
-              </div>
-              <span className="text-[10px] font-mono text-[#62666d]">4</span>
-            </button>
-
-            <button
-              onClick={() => setActiveNav("guardrails")}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                activeNav === "guardrails"
-                  ? "bg-[#141516] text-[#f7f8f8] border border-[#23252a]"
-                  : "text-[#8a8f98] hover:text-[#d0d6e0] hover:bg-[#0f1011]"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <ShieldCheck className={`w-3.5 h-3.5 ${activeNav === "guardrails" ? "text-[#27a644]" : "text-[#8a8f98]"}`} />
-                <span>Safety Invariants</span>
-              </div>
-              <span className="text-[10px] font-mono text-[#27a644]">100%</span>
-            </button>
-
-            <button
-              onClick={() => setActiveNav("telemetry")}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                activeNav === "telemetry"
-                  ? "bg-[#141516] text-[#f7f8f8] border border-[#23252a]"
-                  : "text-[#8a8f98] hover:text-[#d0d6e0] hover:bg-[#0f1011]"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Activity className={`w-3.5 h-3.5 ${activeNav === "telemetry" ? "text-[#5e6ad2]" : "text-[#8a8f98]"}`} />
-                <span>Pipeline SLA</span>
-              </div>
-              <span className="text-[10px] font-mono text-[#27a644]">182ms</span>
+          <div className="brand-row">
+            <div className="brand-mark"><span /><span /><span /></div>
+            <span className="brand-name">Vaani</span>
+            {onExitStudio && (
+              <button
+                className="exit-link-btn"
+                onClick={onExitStudio}
+                title="Return to website"
+              >
+                ← Website
+              </button>
+            )}
+            <button className="icon-button sidebar-close" onClick={() => setMobileNav(false)} aria-label="Close menu">
+              <X size={18} />
             </button>
           </div>
-
-          {/* Industry Preset Templates Section */}
-          <div className="p-2 border-t border-[#1c1d22]">
-            <div className="px-2 pt-1 pb-1.5 flex items-center justify-between text-[10px] font-medium tracking-wider uppercase text-[#62666d]">
-              <span>SMB Preset Kits</span>
-              <span className="text-[9px] font-mono">4 ACTIVE</span>
-            </div>
-
-            <div className="space-y-1">
-              {Object.values(INDUSTRY_PRESETS).map((p) => {
-                const isSelected = selectedPresetKey === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelectedPresetKey(p.id)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-all flex items-center justify-between ${
-                      isSelected
-                        ? "bg-[#141516] text-[#f7f8f8] border border-[#5e6ad2]/50 font-medium"
-                        : "text-[#8a8f98] hover:text-[#d0d6e0] hover:bg-[#0f1011]"
-                    }`}
-                  >
-                    <div className="truncate">
-                      <div className="truncate">{p.name}</div>
-                      <div className="text-[10px] text-[#62666d] truncate font-mono">{p.phone}</div>
-                    </div>
-                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#5e6ad2]" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <button className="workspace-switcher">
+            <span className="workspace-avatar">CA</span>
+            <span><strong>{preset.business}</strong><small>Production workspace</small></span>
+            <ChevronDown size={14} />
+          </button>
+          <nav className="primary-nav" aria-label="Main navigation">
+            <p className="nav-label">Workspace</p>
+            <button className={activeNav === "overview" ? "active" : ""} onClick={() => navigate("overview")}>
+              <LayoutDashboard size={17} />Overview
+            </button>
+            <button className={activeNav === "agent" ? "active" : ""} onClick={() => navigate("agent")}>
+              <Sparkles size={17} />Agent setup
+            </button>
+            <button className={activeNav === "calls" ? "active" : ""} onClick={() => navigate("calls")}>
+              <PhoneCall size={17} />Calls<span className="nav-count">{callHistory.length}</span>
+            </button>
+            <p className="nav-label nav-label--second">Manage</p>
+            <button className={activeNav === "agent" && editorTab === "engine" ? "active" : ""} onClick={() => { setActiveNav("agent"); setEditorTab("engine"); }}>
+              <Cpu size={17} />Model & engine
+            </button>
+            <button className={activeNav === "agent" && editorTab === "knowledge" ? "active" : ""} onClick={() => { setActiveNav("agent"); setEditorTab("knowledge"); }}>
+              <BookOpen size={17} />Knowledge
+            </button>
+            <button className={activeNav === "agent" && editorTab === "rules" ? "active" : ""} onClick={() => { setActiveNav("agent"); setEditorTab("rules"); }}>
+              <ShieldCheck size={17} />Guardrails
+            </button>
+          </nav>
         </div>
-
-        {/* Infrastructure & Telemetry Health Badge */}
-        <div className="p-3 border-t border-[#23252a] bg-[#090a0c] space-y-1.5">
-          <div className="flex items-center justify-between text-[10px] font-mono text-[#8a8f98]">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#27a644]" />
-              chomp:8083 (Llama)
-            </span>
-            <span className="text-[#f7f8f8]">182ms TTFA</span>
-          </div>
-          <div className="flex items-center justify-between text-[10px] font-mono text-[#62666d]">
-            <span>Bulbul v2 TTS</span>
-            <span>24kHz Opus</span>
+        <div className="sidebar-footer">
+          <button><CircleHelp size={17} />Help & documentation</button>
+          <button><Settings size={17} />Workspace settings</button>
+          <div className="privacy-note">
+            <ShieldCheck size={16} />
+            <span><strong>Private by design</strong><small>Inference stays on your server</small></span>
           </div>
         </div>
       </aside>
+      {mobileNav && <button className="sidebar-scrim" aria-label="Close menu" onClick={() => setMobileNav(false)} />}
 
-      {/* ─────────────────────────────────────────────────────────────
-          2. CENTER MAIN COLUMN: Work Area (Flex-1)
-         ───────────────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#010102] overflow-hidden">
-        {/* Top Sticky Navigation Bar (Linear Header) */}
-        <header className="h-12 border-b border-[#23252a] px-4 flex items-center justify-between flex-shrink-0 bg-[#010102]/95 backdrop-blur">
-          {/* Breadcrumb Trail */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-[#8a8f98]">Voice Agents</span>
-            <span className="text-[#62666d]">/</span>
-            <span className="text-[#f7f8f8] font-medium">{preset.businessName}</span>
-            <span className="bg-[#141516] text-[#27a644] text-[10px] font-mono px-2 py-0.5 rounded-full border border-[#23252a] flex items-center gap-1 ml-1.5">
-              <span className="w-1 h-1 rounded-full bg-[#27a644]" />
-              v2.4-prod
-            </span>
+      <main className="main-shell">
+        <header className="topbar">
+          <button className="icon-button menu-button" onClick={() => setMobileNav(true)} aria-label="Open menu">
+            <Menu size={19} />
+          </button>
+          <div className="breadcrumbs">
+            {onExitStudio && (
+              <>
+                <button
+                  onClick={onExitStudio}
+                  style={{ background: "none", border: 0, color: "var(--muted)", cursor: "pointer", fontSize: 13.5, fontWeight: 500, padding: 0 }}
+                  title="Return to website"
+                >
+                  Home
+                </button>
+                <ChevronRight size={13} />
+              </>
+            )}
+            <span>{preset.business}</span>
+            <ChevronRight size={13} />
+            <strong>{activeNav === "overview" ? "Overview" : activeNav === "agent" ? "Maya" : "Calls"}</strong>
           </div>
-
-          {/* Quick Actions & Linear Lavender CTA */}
-          <div className="flex items-center gap-2">
-            {/* Phone Number Pill with Copy */}
-            <div className="flex items-center gap-1.5 bg-[#0f1011] border border-[#23252a] rounded-md px-2.5 py-1 text-xs font-mono text-[#d0d6e0]">
-              <Phone className="w-3 h-3 text-[#5e6ad2]" />
-              <span>{preset.phone}</span>
-              <button
-                onClick={handleCopyPhone}
-                className="text-[#8a8f98] hover:text-[#f7f8f8] ml-1 p-0.5 rounded"
-                title="Copy SIP Number"
-              >
-                {isCopiedPhone ? <Check className="w-3 h-3 text-[#27a644]" /> : <Copy className="w-3 h-3" />}
-              </button>
-            </div>
-
-            {/* Export Spec CTA */}
-            <button
-              onClick={() => alert("Agent specification exported to spec/agent_v2.json")}
-              className="bg-[#0f1011] hover:bg-[#141516] text-[#d0d6e0] border border-[#23252a] px-3 py-1 rounded-md text-xs font-medium transition-colors"
-            >
-              Export JSON
+          <div className="topbar-actions">
+            <span className="save-state"><span />{saved ? "Saved" : "Unsaved"}</span>
+            <button className="button button--quiet" onClick={() => setShowDeployModal(true)}>
+              <Download size={15} />Export spec
             </button>
-
-            {/* Primary Lavender Deploy CTA */}
-            <button
-              onClick={() => {
-                alert(`Agent ${preset.name} deployed to live SIP trunks!`);
-              }}
-              className="bg-[#5e6ad2] hover:bg-[#828fff] text-white px-3.5 py-1 rounded-md text-xs font-medium transition-colors shadow-sm flex items-center gap-1.5"
-            >
-              <Zap className="w-3 h-3" />
-              <span>Deploy Agent</span>
+            <button className="button button--dark" onClick={startCall}>
+              <Phone size={15} />Test agent
             </button>
           </div>
         </header>
 
-        {/* View Switcher: Agents Studio vs Call Logs */}
-        {activeNav === "agents" ? (
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {/* Linear Pill Tabs Strip */}
-            <div className="px-4 pt-3 pb-2 border-b border-[#23252a] flex items-center justify-between flex-shrink-0 bg-[#010102]">
-              <div className="flex items-center gap-1 bg-[#090a0c] p-0.5 rounded-full border border-[#23252a]">
-                <button
-                  onClick={() => setStudioTab("persona")}
-                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-                    studioTab === "persona"
-                      ? "bg-[#141516] text-[#f7f8f8] shadow-sm border border-[#23252a]"
-                      : "text-[#8a8f98] hover:text-[#d0d6e0]"
-                  }`}
-                >
-                  Instructions & Persona
-                </button>
-                <button
-                  onClick={() => setStudioTab("voice")}
-                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-                    studioTab === "voice"
-                      ? "bg-[#141516] text-[#f7f8f8] shadow-sm border border-[#23252a]"
-                      : "text-[#8a8f98] hover:text-[#d0d6e0]"
-                  }`}
-                >
-                  Voice & Acoustic Engine
-                </button>
-                <button
-                  onClick={() => setStudioTab("tools")}
-                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-                    studioTab === "tools"
-                      ? "bg-[#141516] text-[#f7f8f8] shadow-sm border border-[#23252a]"
-                      : "text-[#8a8f98] hover:text-[#d0d6e0]"
-                  }`}
-                >
-                  Tool Registry ({preset.services.length})
-                </button>
-                <button
-                  onClick={() => setStudioTab("invariants")}
-                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-                    studioTab === "invariants"
-                      ? "bg-[#141516] text-[#f7f8f8] shadow-sm border border-[#23252a]"
-                      : "text-[#8a8f98] hover:text-[#d0d6e0]"
-                  }`}
-                >
-                  Safety Invariants ({preset.guardrails.length})
-                </button>
+        <div className="page-scroll">
+          {activeNav === "overview" && (
+            <section className="page page-enter">
+              <div className="page-heading">
+                <h1>Good afternoon.</h1>
+              </div>
+              <div className="hero-card">
+                <div className="hero-copy">
+                  <h2>Maya is answering<br />while you’re working.</h2>
+                  <p>Autonomous inbound receptionist for {preset.business}. Greets callers in real time, quotes diagnostic pricing, and books appointments.</p>
+                  <div className="phone-line">
+                    <Phone size={16} />
+                    <strong>{preset.phone}</strong>
+                    <span style={{ fontSize: 13, color: "var(--muted)", marginLeft: 6 }}>· Live Inbound Line</span>
+                    <button onClick={copyPhone} aria-label="Copy number" style={{ marginLeft: 6 }}>
+                      {copied ? <Check size={16} color="var(--green)" /> : <Copy size={15} />}
+                    </button>
+                  </div>
+                </div>
+                <div className="hero-voice cursor-pointer" onClick={startCall} aria-label="Agent audio status">
+                  <HolyWhiteVoiceOrb
+                    state={callState === "live" ? agentState : "idle"}
+                    audioLevel={callState === "live" ? audioLevel : 0}
+                    size={130}
+                  />
+                  <p>Maya is ready</p>
+                  <span>{preset.voice}</span>
+                </div>
+              </div>
+              <div className="metric-grid">
+                <article>
+                  <p>Calls answered</p>
+                  <strong>{callHistory.length}</strong>
+                  <span><b>+18%</b> from last week</span>
+                </article>
+                <article>
+                  <p>Appointments booked</p>
+                  <strong>{bookingsCount}</strong>
+                  <span>{callHistory.length > 0 ? Math.round((bookingsCount / callHistory.length) * 100) : 0}% booking rate</span>
+                </article>
+                <article>
+                  <p>Time saved</p>
+                  <strong>3h 42m</strong>
+                  <span>Across the last 7 days</span>
+                </article>
+                <article>
+                  <p>Calls needing you</p>
+                  <strong>2</strong>
+                  <span>Both transferred safely</span>
+                </article>
               </div>
 
-              <div className="text-[11px] font-mono text-[#8a8f98]">
-                Deterministic Guardrails Active · Qwen3.5-9B Verified
-              </div>
-            </div>
-
-            {/* Tab 1: Persona & Instructions */}
-            {studioTab === "persona" && (
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {/* 1. Spoken Greeting Card */}
-                <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-[#5e6ad2]" />
-                      <span className="text-xs font-medium text-[#f7f8f8]">First Spoken Greeting (Ring 1)</span>
+              <div className="content-grid">
+                <article className="panel recent-panel">
+                  <div className="panel-heading">
+                    <h3>Recent calls</h3>
+                    <button onClick={() => setActiveNav("calls")}>View all <ArrowUpRight size={14} /></button>
+                  </div>
+                  <div className="call-list">
+                    {callHistory.slice(0, 3).map((call, idx) => (
+                      <CallRow key={`${call.phone}-${idx}`} call={call} />
+                    ))}
+                  </div>
+                </article>
+                <article className="panel setup-panel">
+                  <div className="panel-heading">
+                    <h3>Agent readiness</h3>
+                  </div>
+                  <div className="readiness-score">
+                    <div className="score-ring">92<small>%</small></div>
+                    <div><strong>Ready for calls</strong></div>
+                  </div>
+                  {["Business hours", "Services & pricing", "Booking rules"].map((item) => (
+                    <div className="check-row" key={item}>
+                      <span><Check size={13} /></span>
+                      {item}
+                      <small>Complete</small>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono bg-[#141516] text-[#8a8f98] px-2 py-0.5 rounded border border-[#23252a]">
-                        Trigger: SIP 200 OK
-                      </span>
+                  ))}
+                  <button className="improve-link" onClick={() => setActiveNav("agent")}>
+                    Improve your greeting <ChevronRight size={14} />
+                  </button>
+                </article>
+              </div>
+            </section>
+          )}
+
+          {activeNav === "agent" && (
+            <section className="page page-enter">
+              <div className="page-heading agent-heading">
+                <h1>Meet Maya.</h1>
+                <div className="preset-select">
+                  <span>Template</span>
+                  <select value={presetId} onChange={(event) => setPresetId(event.target.value)}>
+                    {PRESETS.map((item) => (
+                      <option value={item.id} key={item.id}>{item.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="agent-layout">
+                <article className="panel editor-panel">
+                  <div className="editor-tabs">
+                    {(["prompt", "voice", "engine", "knowledge", "rules"] as EditorTab[]).map((tab) => (
+                      <button
+                        key={tab}
+                        className={editorTab === tab ? "active" : ""}
+                        onClick={() => setEditorTab(tab)}
+                      >
+                        {tab === "prompt" ? "Greeting" : tab === "voice" ? "Voice" : tab === "engine" ? "Model & engine" : tab === "rules" ? "Guardrails" : "Knowledge"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="editor-content">
+                    {editorTab === "prompt" && (
+                      <>
+                        <div className="section-title">
+                          <span className="section-icon"><MessageSquareText size={18} /></span>
+                          <h3>Greeting</h3>
+                        </div>
+                        <textarea
+                          id="greeting"
+                          value={greeting}
+                          onChange={(event) => { setGreeting(event.target.value); setSaved(false); }}
+                        />
+                        <div className="field-help">
+                          <span>{greeting.length} characters · about {Math.max(4, Math.round(greeting.split(" ").length / 2.4))} seconds</span>
+                          <button onClick={() => { setGreeting(preset.greeting); setSaved(true); }}>Reset</button>
+                        </div>
+                        <button className="button button--dark save-button" onClick={() => setSaved(true)}>
+                          Save greeting
+                        </button>
+                      </>
+                    )}
+                    {editorTab === "voice" && (
+                      <>
+                        <div className="section-title">
+                          <span className="section-icon"><Volume2 size={20} /></span>
+                          <div>
+                            <h3 style={{ margin: 0, fontSize: 20 }}>Voice Persona & Accent Studio</h3>
+                            <small style={{ color: "var(--muted)", fontSize: 13 }}>Configure authentic accents, cadence, and delivery controls for your agent.</small>
+                          </div>
+                        </div>
+
+                        {/* Hidden audio element for instant voice auditioning */}
+                        <audio ref={previewAudioRef} preload="none" />
+
+                        {/* Acoustic Engine Provider Selection */}
+                        <div style={{ marginBottom: 18, padding: "16px 20px", borderRadius: 14, border: "1px solid var(--line)", background: "white" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>Voice Synthesis Provider</span>
+                            <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Compare Local Offline vs Cloud Studio</span>
+                          </div>
+
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                            <button
+                              type="button"
+                              onClick={() => { setTtsProvider("kokoro"); setSaved(false); }}
+                              style={{
+                                padding: "12px 16px",
+                                borderRadius: 10,
+                                border: ttsProvider === "kokoro" || ttsProvider === "piper" ? "1.5px solid var(--ink)" : "1px solid var(--line)",
+                                background: ttsProvider === "kokoro" || ttsProvider === "piper" ? "#fdfcfb" : "transparent",
+                                textAlign: "left",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <strong style={{ display: "block", fontSize: 14, color: "var(--ink)" }}>Local On-Device Engine (Kokoro & Piper)</strong>
+                              <span style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>Private & free · Zero GPU VRAM required · Instant offline execution</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => { setTtsProvider("sarvam"); setSaved(false); }}
+                              style={{
+                                padding: "12px 16px",
+                                borderRadius: 10,
+                                border: ttsProvider === "sarvam" || ttsProvider === "elevenlabs" ? "1.5px solid var(--ink)" : "1px solid var(--line)",
+                                background: ttsProvider === "sarvam" || ttsProvider === "elevenlabs" ? "#fdfcfb" : "transparent",
+                                textAlign: "left",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <strong style={{ display: "block", fontSize: 14, color: "var(--ink)" }}>Cloud High-Fidelity (Sarvam AI / ElevenLabs)</strong>
+                              <span style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>Studio 44.1kHz speech · Native Hinglish & dialect inflection</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Language & Accent Filter Bar */}
+                        <div className="voice-lang-filter-bar">
+                          {[
+                            { id: "all", label: "All Accents" },
+                            { id: "hi", label: "Hindi & Hinglish (हिंदी)" },
+                            { id: "en-in", label: "Indian English (en-IN)" },
+                            { id: "en-us", label: "US English (en-US)" },
+                            { id: "en-gb", label: "British RP (en-GB)" },
+                          ].map((f) => (
+                            <button
+                              key={f.id}
+                              type="button"
+                              className={`voice-filter-chip ${voiceLangFilter === f.id ? "active" : ""}`}
+                              onClick={() => setVoiceLangFilter(f.id as any)}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Voice Persona Cards */}
+                        <div className="voice-card-grid">
+                          {VOICE_PERSONAS
+                            .filter((v) => voiceLangFilter === "all" || v.lang === voiceLangFilter)
+                            .map((v) => {
+                              const isSelected = selectedVoicePersonaId === v.id;
+                              const isPlaying = previewPlayingVoiceId === v.id;
+                              return (
+                                <div
+                                  key={v.id}
+                                  className={`voice-card-modern ${isSelected ? "selected" : ""}`}
+                                  onClick={() => onSelectVoicePersona(v)}
+                                >
+                                  <div className="voice-card-top">
+                                    <div className="voice-card-meta">
+                                      <span className="voice-name-title">{v.name}</span>
+                                      <span className="voice-badge-tag">{v.accent}</span>
+                                    </div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <button
+                                        type="button"
+                                        className={`voice-preview-btn ${isPlaying ? "playing" : ""}`}
+                                        onClick={(e) => toggleVoicePreview(v, e)}
+                                        title="Audition voice sample"
+                                      >
+                                        {isPlaying ? <Pause size={12} /> : <Play size={12} fill="currentColor" />}
+                                        <span>{isPlaying ? "Playing" : "Preview"}</span>
+                                      </button>
+                                      {isSelected && <Check size={16} color="var(--ink)" />}
+                                    </div>
+                                  </div>
+                                  <div className="voice-desc-row">
+                                    <span>{v.tone} · <i>{v.engine}</i></span>
+                                    <span>{v.recommendedFor}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+
+                        {/* Advanced Delivery Controls (ElevenLabs / Sarvam Parity) */}
+                        <div className="delivery-controls-box">
+                          <h4>
+                            <SlidersHorizontal size={14} color="var(--ink)" />
+                            Delivery & Prosody Controls (ElevenLabs & Sarvam Parity)
+                          </h4>
+
+                          <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                              <label>Speaking Pace</label>
+                              <strong>{speakingPace.toFixed(2)}x · {speakingPace < 0.95 ? "Deliberate" : speakingPace > 1.1 ? "Brisk" : "Natural"}</strong>
+                            </div>
+                            <input
+                              type="range"
+                              min="75"
+                              max="135"
+                              value={Math.round(speakingPace * 100)}
+                              onChange={(e) => { setSpeakingPace(Number(e.target.value) / 100); setSaved(false); }}
+                              className="range"
+                            />
+                          </div>
+
+                          <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                              <label>Stability & Consistency</label>
+                              <strong>{voiceStability}% · {voiceStability > 80 ? "Strict Scripted" : "Natural Expressive"}</strong>
+                            </div>
+                            <input
+                              type="range"
+                              min="30"
+                              max="100"
+                              value={voiceStability}
+                              onChange={(e) => { setVoiceStability(Number(e.target.value)); setSaved(false); }}
+                              className="range"
+                            />
+                          </div>
+
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+                            <div>
+                              <strong style={{ fontSize: 13.5, display: "block", color: "var(--ink)" }}>Hinglish Code-Switching Mode</strong>
+                              <span style={{ fontSize: 12, color: "var(--muted)" }}>Preserves crisp English pronunciation for technical terms in Hindi sentences</span>
+                            </div>
+                            <button
+                              type="button"
+                              className={`toggle-switch ${hinglishCodeSwitching ? "on" : ""}`}
+                              onClick={() => { setHinglishCodeSwitching(!hinglishCodeSwitching); setSaved(false); }}
+                            >
+                              <div className="toggle-handle" />
+                            </button>
+                          </div>
+
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <strong style={{ fontSize: 13.5, display: "block", color: "var(--ink)" }}>Adaptive Sentiment Pacing</strong>
+                              <span style={{ fontSize: 12, color: "var(--muted)" }}>Softens vocal tone and introduces soothing fillers if caller sounds distressed</span>
+                            </div>
+                            <button
+                              type="button"
+                              className={`toggle-switch ${callerEmotionPacing ? "on" : ""}`}
+                              onClick={() => { setCallerEmotionPacing(!callerEmotionPacing); setSaved(false); }}
+                            >
+                              <div className="toggle-handle" />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    {editorTab === "engine" && (
+                      <>
+                        <div className="section-title">
+                          <span className="section-icon"><Cpu size={20} /></span>
+                          <div>
+                            <h3 style={{ margin: 0, fontSize: 20 }}>Model Architecture & Voice Engine</h3>
+                            <small style={{ color: "var(--muted)", fontSize: 13.5 }}>Configure self-hosted AI brains, acoustic decoders, and full-duplex pipelines.</small>
+                          </div>
+                        </div>
+
+                        {/* Public Demo Mode Banner */}
+                        {isPublicDemoMode && (
+                          <div className="public-demo-banner">
+                            <div>
+                              <strong>🌐 Public Web Demo Mode Active</strong>
+                              <span>Visitors test live interactive calls with ephemeral sessions, 3-min timeout guard, and instant quick-prompt simulation.</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="button button--outline"
+                              style={{ fontSize: 13, minHeight: 32, padding: "0 14px", borderColor: "#bfdbfe", background: "white" }}
+                              onClick={() => setIsPublicDemoMode(!isPublicDemoMode)}
+                            >
+                              Switch to On-Prem
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Target Hardware & Environment Selector */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <label className="field-label" style={{ margin: 0 }}>Target Deployment Environment</label>
+                          <span style={{ fontSize: 13, color: "var(--muted)" }}>Simulating hardware constraints & concurrency</span>
+                        </div>
+                        <div className="hw-profile-grid">
+                          {HARDWARE_PROFILES.map((hw) => (
+                            <button
+                              key={hw.id}
+                              type="button"
+                              className={`hw-profile-card ${selectedHardwareProfile === hw.id ? "selected" : ""}`}
+                              onClick={() => { setSelectedHardwareProfile(hw.id); setSaved(false); }}
+                            >
+                              <div className="hw-profile-header">
+                                <strong>{hw.shortName}</strong>
+                                <span className={`hw-profile-badge ${hw.id === "cloud_l4_24gb" ? "hw-profile-badge--demo" : hw.id === "edge_rtx4060_8gb" ? "hw-profile-badge--edge" : ""}`}>
+                                  {hw.tag}
+                                </span>
+                              </div>
+                              <p className="hw-profile-desc">{hw.platform}</p>
+                              <div className="preset-stack-meta" style={{ marginTop: 4 }}>
+                                <span>{hw.vramGb === 0 ? "Zero GPU" : `${hw.vramGb} GB`}</span>
+                                <span>{hw.concurrency === 999 ? "∞ Calls" : `${hw.concurrency} Lines`}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Real-Time Hardware Telemetry HUD */}
+                        <div className="engine-hud">
+                          <div className="engine-hud-card">
+                            <span>VRAM Footprint</span>
+                            <strong>
+                              {activeProfile.vramGb === 0 ? "0 MB" : `${calculatedVram} GB`}
+                              <small style={{ color: "var(--muted)", marginLeft: 4 }}>
+                                / {activeProfile.vramGb === 0 ? "WebGPU" : `${activeProfile.vramGb.toFixed(1)} GB`}
+                              </small>
+                            </strong>
+                            <div className="vram-meter-container">
+                              <div
+                                className={`vram-meter-fill ${vramPercent > 95 ? "vram-meter-fill--danger" : vramPercent > 75 ? "vram-meter-fill--warn" : "vram-meter-fill--safe"}`}
+                                style={{ width: `${activeProfile.vramGb === 0 ? 10 : Math.max(8, vramPercent)}%` }}
+                              />
+                            </div>
+                            <small style={{ marginTop: 3 }}>
+                              {activeProfile.vramGb === 0 ? "Client in-browser" : vramPercent > 95 ? "Over budget — upgrade profile" : vramPercent > 75 ? "Tight headroom" : "Optimal headroom"}
+                            </small>
+                          </div>
+                          <div className="engine-hud-card">
+                            <span>Max Concurrency</span>
+                            <strong>{calculatedConcurrency}</strong>
+                            <small>Simultaneous callers</small>
+                          </div>
+                          <div className="engine-hud-card">
+                            <span>Turn Latency</span>
+                            <strong>{calculatedTurnLatency}</strong>
+                            <small>{calculatedTtft}</small>
+                          </div>
+                          <div className="engine-hud-card">
+                            <span>Inference Engine</span>
+                            <strong>{activeProfile.engine.split(" ")[0]}</strong>
+                            <small>{activeProfile.engine.split(" ").slice(1, 3).join(" ") || "Native"}</small>
+                          </div>
+                        </div>
+
+                        {/* Full-Stack Architectural Presets */}
+                        <label className="field-label" style={{ marginTop: 12 }}>Curated Architectural Stacks</label>
+                        <div className="preset-stacks-grid">
+                          {ENGINE_STACK_PRESETS.map((stack) => (
+                            <button
+                              key={stack.id}
+                              type="button"
+                              className={`preset-stack-card ${selectedPresetStack === stack.id ? "selected" : ""}`}
+                              onClick={() => applyPresetStack(stack)}
+                            >
+                              <div className="preset-stack-header">
+                                <strong>{stack.title}</strong>
+                                <span className="preset-stack-tag">{stack.tag}</span>
+                              </div>
+                              <p className="preset-stack-desc">{stack.desc}</p>
+                              <div className="preset-stack-meta">
+                                <span><Gauge size={11} style={{ display: "inline", marginRight: 3 }} />{stack.vramStr}</span>
+                                <span><Zap size={11} style={{ display: "inline", marginRight: 3 }} />{stack.latencyStr}</span>
+                                <span><Layers size={11} style={{ display: "inline", marginRight: 3 }} />{stack.arch === "full_duplex" ? "S2S" : "Cascaded"}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Architecture Mode Selector */}
+                        <label className="field-label" style={{ marginTop: 20 }}>Pipeline Architecture Mode</label>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                          <button
+                            type="button"
+                            className={`voice-choice ${archMode === "cascaded" ? "selected" : ""}`}
+                            style={{ margin: 0, minHeight: 56, cursor: "pointer" }}
+                            onClick={() => { setArchMode("cascaded"); setSaved(false); }}
+                          >
+                            <span className="play-circle" style={{ width: 28, height: 28, background: archMode === "cascaded" ? "var(--ink)" : "var(--stone)", color: archMode === "cascaded" ? "white" : "var(--ink)" }}>
+                              <Layers size={14} />
+                            </span>
+                            <span>
+                              <strong>Cascaded Turn Engine</strong>
+                              <small>STT → Agentic LLM → TTS · Strict slot-filling & state machine</small>
+                            </span>
+                            {archMode === "cascaded" && <Check size={16} />}
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`voice-choice ${archMode === "full_duplex" ? "selected" : ""}`}
+                            style={{ margin: 0, minHeight: 56, cursor: "pointer" }}
+                            onClick={() => {
+                              setArchMode("full_duplex");
+                              setSelectedLlm("s2s.nvidia.personaplex");
+                              setSelectedPresetStack("stack_personaplex");
+                              setSaved(false);
+                            }}
+                          >
+                            <span className="play-circle" style={{ width: 28, height: 28, background: archMode === "full_duplex" ? "var(--ink)" : "var(--stone)", color: archMode === "full_duplex" ? "white" : "var(--ink)" }}>
+                              <Radio size={14} />
+                            </span>
+                            <span>
+                              <strong>End-to-End Full-Duplex (S2S)</strong>
+                              <small>PersonaPlex / Moshi · 170ms audio-in to audio-out latency</small>
+                            </span>
+                            {archMode === "full_duplex" && <Check size={16} />}
+                          </button>
+                        </div>
+
+                        {archMode === "cascaded" ? (
+                          <>
+                            {/* LLM Brain Selector */}
+                            <label className="field-label">Agentic LLM Brain (llama-server GGUF)</label>
+                            {AVAILABLE_LLMS.map((model) => (
+                              <button
+                                key={model.id}
+                                type="button"
+                                className={`engine-model-item ${selectedLlm === model.id ? "selected" : ""}`}
+                                onClick={() => { setSelectedLlm(model.id); setSaved(false); }}
+                              >
+                                <div className="engine-model-info">
+                                  <strong>{model.name}</strong>
+                                  <small>{model.desc}</small>
+                                </div>
+                                <div className="engine-model-tags">
+                                  <span className="engine-pill engine-pill--vram">{model.vramMb > 0 ? `${(model.vramMb / 1024).toFixed(1)} GB` : "0 GB"}</span>
+                                  <span className="engine-pill">{model.latencyStr}</span>
+                                  {model.recommended && <span className="engine-pill engine-pill--accent">Recommended</span>}
+                                  {selectedLlm === model.id && <Check size={15} style={{ color: "var(--green)", marginLeft: 4 }} />}
+                                </div>
+                              </button>
+                            ))}
+
+                            {/* TTS Engine Selector */}
+                            <label className="field-label" style={{ marginTop: 18 }}>Text-to-Speech Voice Engine (TTS)</label>
+                            {AVAILABLE_TTSS.map((model) => (
+                              <button
+                                key={model.id}
+                                type="button"
+                                className={`engine-model-item ${selectedTts === model.id ? "selected" : ""}`}
+                                onClick={() => { setSelectedTts(model.id); setSaved(false); }}
+                              >
+                                <div className="engine-model-info">
+                                  <strong>{model.name}</strong>
+                                  <small>{model.desc}</small>
+                                </div>
+                                <div className="engine-model-tags">
+                                  <span className="engine-pill engine-pill--vram">{model.vramMb > 0 ? `${model.vramMb} MB` : "CPU (0 MB)"}</span>
+                                  <span className="engine-pill">{model.latencyStr}</span>
+                                  {model.recommended && <span className="engine-pill engine-pill--accent">High Quality</span>}
+                                  {selectedTts === model.id && <Check size={15} style={{ color: "var(--green)", marginLeft: 4 }} />}
+                                </div>
+                              </button>
+                            ))}
+
+                            {/* STT Engine Selector */}
+                            <label className="field-label" style={{ marginTop: 18 }}>Speech-to-Text Recognition (STT)</label>
+                            {AVAILABLE_STTS.map((model) => (
+                              <button
+                                key={model.id}
+                                type="button"
+                                className={`engine-model-item ${selectedStt === model.id ? "selected" : ""}`}
+                                onClick={() => { setSelectedStt(model.id); setSaved(false); }}
+                              >
+                                <div className="engine-model-info">
+                                  <strong>{model.name}</strong>
+                                  <small>{model.desc}</small>
+                                </div>
+                                <div className="engine-model-tags">
+                                  <span className="engine-pill engine-pill--vram">{model.vramMb} MB</span>
+                                  <span className="engine-pill">{model.latencyStr}</span>
+                                  {model.recommended && <span className="engine-pill engine-pill--accent">Fast</span>}
+                                  {selectedStt === model.id && <Check size={15} style={{ color: "var(--green)", marginLeft: 4 }} />}
+                                </div>
+                              </button>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            {/* Full-Duplex S2S Models */}
+                            <label className="field-label">Speech-to-Speech Foundation Models</label>
+                            <button
+                              type="button"
+                              className={`engine-model-item selected`}
+                            >
+                              <div className="engine-model-info">
+                                <strong>NVIDIA PersonaPlex-7B (v1)</strong>
+                                <small>Unified full-duplex neural audio model. Eliminates cascading turn delay; simultaneous listen and talk with hybrid persona prompting.</small>
+                              </div>
+                              <div className="engine-model-tags">
+                                <span className="engine-pill engine-pill--vram">4.8 GB</span>
+                                <span className="engine-pill">~170ms Audio</span>
+                                <span className="engine-pill engine-pill--accent">NVIDIA Open Model</span>
+                                <Check size={15} style={{ color: "var(--green)", marginLeft: 4 }} />
+                              </div>
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`engine-model-item`}
+                              onClick={() => { setSelectedLlm("s2s.kyutai.moshi"); setSaved(false); }}
+                            >
+                              <div className="engine-model-info">
+                                <strong>Kyutai Moshi 7B (Mimi Codec)</strong>
+                                <small>24kHz Mimi neural audio codec with Helium 7B backbone and inner monologue stream.</small>
+                              </div>
+                              <div className="engine-model-tags">
+                                <span className="engine-pill engine-pill--vram">5.2 GB</span>
+                                <span className="engine-pill">~160ms Audio</span>
+                                <span className="engine-pill">Open Weights</span>
+                              </div>
+                            </button>
+                          </>
+                        )}
+
+                        {/* Agentic Capabilities & Guardrails Toggles */}
+                        <label className="field-label" style={{ marginTop: 22 }}>Autonomous Agentic Behaviors</label>
+                        
+                        <div className="engine-toggle-row">
+                          <div className="engine-toggle-info">
+                            <strong>Autonomous Failure Diagnostics & Retries</strong>
+                            <small>If a booking tool returns a slot conflict or API validation error, the agent self-corrects without caller interruption.</small>
+                          </div>
+                          <div
+                            className={`toggle-switch ${failureRecovery ? "on" : ""}`}
+                            onClick={() => { setFailureRecovery(!failureRecovery); setSaved(false); }}
+                          >
+                            <div className="toggle-handle" />
+                          </div>
+                        </div>
+
+                        <div className="engine-toggle-row">
+                          <div className="engine-toggle-info">
+                            <strong>Paralinguistic Acoustic Expressions ([laugh], [sigh])</strong>
+                            <small>Enables natural conversational fillers and acoustic tags via Chatterbox-Turbo / Kokoro to eliminate awkward turn transitions.</small>
+                          </div>
+                          <div
+                            className={`toggle-switch ${paralinguisticTags ? "on" : ""}`}
+                            onClick={() => { setParalinguisticTags(!paralinguisticTags); setSaved(false); }}
+                          >
+                            <div className="toggle-handle" />
+                          </div>
+                        </div>
+
+                        <div className="engine-toggle-row">
+                          <div className="engine-toggle-info">
+                            <strong>Live Caller Emotion & Sentiment Tracking</strong>
+                            <small>Transmits SenseVoice acoustic event tags (&lt;angry&gt;, &lt;happy&gt;) to modulate speech empathy and urgency.</small>
+                          </div>
+                          <div
+                            className={`toggle-switch ${emotionSensing ? "on" : ""}`}
+                            onClick={() => { setEmotionSensing(!emotionSensing); setSaved(false); }}
+                          >
+                            <div className="toggle-handle" />
+                          </div>
+                        </div>
+
+                        {/* Public Demo Multi-User Governance */}
+                        <label className="field-label" style={{ marginTop: 20 }}>Public Demo & Multi-User Governance</label>
+                        <div className="engine-toggle-row">
+                          <div className="engine-toggle-info">
+                            <strong>Public Demo Ephemeral Privacy (GDPR / HIPAA)</strong>
+                            <small>Masks caller phone numbers (+1 ***-***-1234) and wipes audio buffers from RAM upon call hangup for public visitors.</small>
+                          </div>
+                          <div
+                            className={`toggle-switch ${isPublicDemoMode ? "on" : ""}`}
+                            onClick={() => { setIsPublicDemoMode(!isPublicDemoMode); setSaved(false); }}
+                          >
+                            <div className="toggle-handle" />
+                          </div>
+                        </div>
+
+                        <button className="button button--dark save-button" onClick={() => setSaved(true)}>
+                          Apply Engine Configuration
+                        </button>
+                      </>
+                    )}
+                    {editorTab === "knowledge" && (
+                      <>
+                        <div className="section-title">
+                          <span className="section-icon"><BookOpen size={18} /></span>
+                          <h3>Services & pricing</h3>
+                        </div>
+                        <div className="knowledge-list">
+                          {preset.services.map((service) => (
+                            <div key={service.name}>
+                              <span><strong>{service.name}</strong></span>
+                              <b>{service.price}</b>
+                              <button aria-label="Service actions"><MoreHorizontal size={17} /></button>
+                            </div>
+                          ))}
+                        </div>
+                        <button className="button button--outline"><Plus size={15} />Add a service</button>
+                      </>
+                    )}
+                    {editorTab === "rules" && (
+                      <>
+                        <div className="section-title">
+                          <span className="section-icon"><ShieldCheck size={18} /></span>
+                          <h3>Safety guardrails</h3>
+                        </div>
+                        <div className="rules-list">
+                          {preset.rules.map((rule) => (
+                            <div key={rule}>
+                              <span><ShieldCheck size={16} /></span>
+                              <p>{rule}</p>
+                              <small>Enforced</small>
+                            </div>
+                          ))}
+                        </div>
+                        <button className="button button--outline"><Plus size={15} />Add guardrail</button>
+                      </>
+                    )}
+                  </div>
+                </article>
+                <aside className="agent-preview">
+                  <div className="preview-top">
+                    <span>Agent preview</span>
+                  </div>
+                  <div className="preview-orb">
+                    <HolyWhiteVoiceOrb state="idle" audioLevel={0} size={120} />
+                    <h3>Maya</h3>
+                    <p>{preset.voice}</p>
+                  </div>
+                  <div className="preview-quote">“{greeting}”</div>
+                  <button className="button button--dark" onClick={startCall}>
+                    <Phone size={16} />Test this agent
+                  </button>
+                </aside>
+              </div>
+            </section>
+          )}
+
+          {activeNav === "calls" && (
+            <section className="page page-enter">
+              <div className="page-heading">
+                <h1>Calls</h1>
+                <button className="button button--outline"><CalendarDays size={15} />Last 7 days</button>
+              </div>
+              <div className="call-summary">
+                <div><span>{callHistory.length}</span><p>Total calls</p></div>
+                <div><span>{Math.max(0, callHistory.length - 3)}</span><p>Handled by Maya</p></div>
+                <div><span>{bookingsCount}</span><p>Bookings</p></div>
+                <div><span>2</span><p>Transfers</p></div>
+              </div>
+
+              <article className="panel calls-panel">
+                <div className="table-head">
+                  <span>Caller</span><span>Outcome</span><span>Time</span><span>Duration</span><span />
+                </div>
+                {callHistory.map((call, idx) => (
+                  <CallRow key={`${call.phone}-${idx}`} call={call} expanded />
+                ))}
+              </article>
+            </section>
+          )}
+        </div>
+      </main>
+
+      {/* Actual Live Voice Call Modal with Holy White Voice Orb */}
+      {callState !== "idle" && (
+        <div className="call-modal-backdrop" role="dialog" aria-modal="true" aria-label="Live Voice Call">
+          <div className="call-modal">
+            <button className="icon-button modal-close" onClick={endCall} aria-label="Close">
+              <X size={18} />
+            </button>
+
+            <div className="call-modal-body">
+              {/* Luminous Holy White Voice Orb */}
+              <HolyWhiteVoiceOrb
+                state={callState === "connecting" ? "thinking" : agentState}
+                audioLevel={audioLevel}
+                size={220}
+              />
+
+              <div className="agent-status-tag">
+                <span className={`status-indicator ${agentState}`} />
+                <strong>Maya</strong> · {callState === "connecting" ? "Connecting…" : agentState === "speaking" ? "Speaking" : agentState === "thinking" ? "Thinking…" : interimText ? "Listening to you…" : "Listening"}
+                {callState === "live" && <span className="timer-text">· {formatDuration()}</span>}
+              </div>
+
+              {/* Microphone access warning if blocked or missing */}
+              {micError && (
+                <div className="mic-error-banner">
+                  ⚠️ {micError}
+                </div>
+              )}
+
+              {/* Real-time Interim Speech Transcription Pill */}
+              {interimText && (
+                <div className="interim-bubble">
+                  <span className="interim-pulse" />
+                  <span className="interim-text">“{interimText}”</span>
+                </div>
+              )}
+
+              {/* Live Turn Transcript Stream */}
+              <div className="transcript">
+                {callState === "connecting" && (
+                  <div className="connecting-copy">Opening private audio session…</div>
+                )}
+                {turns.map((turn) => (
+                  <div className={`turn turn--${turn.speaker}`} key={turn.id}>
+                    <small>{turn.speaker === "agent" ? "Maya" : "You"} · {turn.timestamp}</small>
+                    <p>{turn.text}</p>
+                  </div>
+                ))}
+                <div ref={endRef} />
+              </div>
+
+              {callState === "live" && (
+                <>
+                  <div className="suggestions">
+                    <button onClick={() => sendTurn("How much does an AC inspection cost?")}>Ask pricing</button>
+                    <button onClick={() => sendTurn("Can I book an appointment tomorrow at 10am?")}>Book tomorrow</button>
+                    <button onClick={() => sendTurn("Mujhe kal subah 10 baje AC servicing book karni hai")}>Book in Hindi (कल 10 बजे)</button>
+                    <button onClick={() => sendTurn("There is smoke and sparks coming from the unit!")}>Report hazard</button>
+                    <button onClick={() => sendTurn("Unit se sparks aur dhuan nikal raha hai!")}>Hazard in Hindi (धुआं / स्पार्क्स)</button>
+                    <button onClick={() => sendTurn("What are your business hours?")}>Operating hours</button>
+                  </div>
+
+                  {/* Audio Controls: Mute Microphone & Message Input */}
+                  <div className="modal-input-row w-full">
+                    <button
+                      className={`mic-button ${isMuted ? "mic-button--muted" : "mic-button--live"}`}
+                      onClick={toggleMute}
+                      title={isMuted ? "Unmute microphone" : "Mute microphone"}
+                    >
+                      {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                    </button>
+                    <div className="message-box flex-1">
+                      <input
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && draft.trim()) {
+                            sendTurn(draft);
+                            setDraft("");
+                          }
+                        }}
+                        placeholder={isMuted ? "Type your reply…" : "Speak into mic or type here…"}
+                        autoFocus
+                      />
                       <button
                         onClick={() => {
-                          setIsPlayingPreview(!isPlayingPreview);
-                          setTimeout(() => setIsPlayingPreview(false), 3000);
+                          if (draft.trim()) {
+                            sendTurn(draft);
+                            setDraft("");
+                          }
                         }}
-                        className="text-xs font-medium text-[#5e6ad2] hover:text-[#828fff] flex items-center gap-1 transition-colors"
+                        aria-label="Send"
                       >
-                        {isPlayingPreview ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                        <span>{isPlayingPreview ? "Playing Audio..." : "Play Preview"}</span>
+                        <Send size={16} />
                       </button>
                     </div>
                   </div>
 
-                  <textarea
-                    rows={2}
-                    value={greetingText}
-                    onChange={(e) => setGreetingText(e.target.value)}
-                    className="w-full bg-[#090a0c] border border-[#23252a] rounded-md p-2.5 text-xs text-[#f7f8f8] focus:outline-none focus:border-[#5e69d1] focus:ring-1 focus:ring-[#5e69d1]/50 resize-none font-sans"
-                    placeholder="Enter greeting spoken immediately upon call answer..."
-                  />
-
-                  <div className="flex items-center justify-between text-[11px] text-[#8a8f98] pt-1">
-                    <span>Low-latency synthesized buffer · Speaks in 140ms on connection</span>
-                    <span className="font-mono">{greetingText.length} chars</span>
-                  </div>
-                </div>
-
-                {/* 2. Structured Agent Architecture (No raw markdown dump slop!) */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Persona Card */}
-                  <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-2">
-                    <div className="flex items-center justify-between border-b border-[#1c1d22] pb-2">
-                      <div className="flex items-center gap-2">
-                        <Bot className="w-3.5 h-3.5 text-[#5e6ad2]" />
-                        <span className="text-xs font-medium text-[#f7f8f8]">Persona & Tone Calibration</span>
-                      </div>
-                      <span className="text-[10px] font-mono text-[#27a644]">ACTIVE</span>
-                    </div>
-                    <div className="space-y-1.5 text-xs text-[#d0d6e0]">
-                      <div className="flex justify-between py-1 border-b border-[#1c1d22]/50">
-                        <span className="text-[#8a8f98]">Receptionist Name</span>
-                        <span className="font-medium text-[#f7f8f8]">Maya</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-[#1c1d22]/50">
-                        <span className="text-[#8a8f98]">Primary Language</span>
-                        <span className="font-medium text-[#f7f8f8]">Indian English + Hinglish</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-[#1c1d22]/50">
-                        <span className="text-[#8a8f98]">Operating Window</span>
-                        <span className="font-medium text-[#f7f8f8] font-mono">{preset.hours}</span>
-                      </div>
-                      <div className="flex justify-between py-1">
-                        <span className="text-[#8a8f98]">Conversational Style</span>
-                        <span className="font-medium text-[#f7f8f8]">Courteous, Crisp, Action-Oriented</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Objective & Workflow Card */}
-                  <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-2">
-                    <div className="flex items-center justify-between border-b border-[#1c1d22] pb-2">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-3.5 h-3.5 text-[#5e6ad2]" />
-                        <span className="text-xs font-medium text-[#f7f8f8]">Execution Objectives</span>
-                      </div>
-                      <span className="text-[10px] font-mono text-[#8a8f98]">4 STEPS</span>
-                    </div>
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex items-center gap-2 text-[#d0d6e0]">
-                        <span className="w-4 h-4 rounded-full bg-[#141516] border border-[#23252a] flex items-center justify-center text-[10px] font-mono text-[#8a8f98]">1</span>
-                        <span>Greet & diagnose caller need from service catalog</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[#d0d6e0]">
-                        <span className="w-4 h-4 rounded-full bg-[#141516] border border-[#23252a] flex items-center justify-center text-[10px] font-mono text-[#8a8f98]">2</span>
-                        <span>Verify availability within operating schedule</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[#d0d6e0]">
-                        <span className="w-4 h-4 rounded-full bg-[#141516] border border-[#23252a] flex items-center justify-center text-[10px] font-mono text-[#8a8f98]">3</span>
-                        <span>Invoke <code className="text-[#5e6ad2] bg-[#141516] px-1 py-0.5 rounded font-mono text-[11px]">reserve_slot()</code> tool for confirmation</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[#d0d6e0]">
-                        <span className="w-4 h-4 rounded-full bg-[#141516] border border-[#23252a] flex items-center justify-center text-[10px] font-mono text-[#8a8f98]">4</span>
-                        <span>Recite confirmation code & dispatch summary</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Service Rate Catalog */}
-                <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Database className="w-3.5 h-3.5 text-[#5e6ad2]" />
-                      <span className="text-xs font-medium text-[#f7f8f8]">Verified Service Rates & Dispatch Catalog</span>
-                    </div>
-                    <span className="text-[10px] font-mono text-[#8a8f98]">{preset.services.length} CATALOG ITEMS</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {preset.services.map((svc, i) => (
-                      <div key={i} className="bg-[#090a0c] border border-[#23252a] rounded-md p-2.5 flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-medium text-[#f7f8f8]">{svc.name}</div>
-                          <div className="text-[10px] text-[#8a8f98] font-mono">{svc.duration} on-site time</div>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs font-mono font-medium text-[#27a644] bg-[#141516] px-2 py-0.5 rounded border border-[#23252a]">
-                            {svc.price}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Voice & Acoustic Calibration */}
-            {studioTab === "voice" && (
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-3">
-                  <div className="text-xs font-medium text-[#f7f8f8]">Speech Synthesis Engine</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { name: "Bulbul v2 Indic", desc: "Sarvam AI · Ultra Low Latency (18ms)", badge: "Optimal" },
-                      { name: "Whisper Large-v3", desc: "OpenAI Fine-Tuned · Bilingual Hindi", badge: "Accurate" },
-                      { name: "Opus Low-Delay", desc: "24kHz Native Telephony Pipeline", badge: "20ms frames" },
-                    ].map((m, i) => (
-                      <div
-                        key={i}
-                        onClick={() => setVoiceModel(m.name)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                          voiceModel.includes(m.name.split(" ")[0])
-                            ? "bg-[#141516] border-[#5e6ad2] shadow-sm"
-                            : "bg-[#090a0c] border-[#23252a] hover:border-[#34343a]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between pb-1">
-                          <span className="text-xs font-medium text-[#f7f8f8]">{m.name}</span>
-                          <span className="text-[9px] font-mono bg-[#141516] text-[#5e6ad2] px-1.5 py-0.5 rounded border border-[#23252a]">
-                            {m.badge}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-[#8a8f98]">{m.desc}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-[#f7f8f8]">Speech Cadence Speed</span>
-                      <span className="text-xs font-mono text-[#5e6ad2]">{voiceSpeed.toFixed(2)}x</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.75"
-                      max="1.30"
-                      step="0.05"
-                      value={voiceSpeed}
-                      onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))}
-                      className="w-full accent-[#5e6ad2]"
-                    />
-                    <div className="flex justify-between text-[10px] text-[#8a8f98] font-mono">
-                      <span>0.75x (Relaxed)</span>
-                      <span>1.0x (Natural)</span>
-                      <span>1.30x (Rapid)</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-[#f7f8f8]">Interruption Sensitivity</span>
-                      <span className="text-xs font-mono text-[#27a644]">{interruptionSensitivity}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="40"
-                      max="100"
-                      value={interruptionSensitivity}
-                      onChange={(e) => setInterruptionSensitivity(parseInt(e.target.value))}
-                      className="w-full accent-[#5e6ad2]"
-                    />
-                    <div className="flex justify-between text-[10px] text-[#8a8f98] font-mono">
-                      <span>Low (Patient)</span>
-                      <span>85% (Balanced VAD)</span>
-                      <span>Instant (0ms cutoff)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Tools & Function Registry */}
-            {studioTab === "tools" && (
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {[
-                  {
-                    name: "reserve_slot(service: string, time: string)",
-                    desc: "Reserves an exclusive calendar slot in SQLite local database and generates verifiable slot token.",
-                    schema: '{"service": "string", "preferred_iso_timestamp": "string", "customer_phone": "string"}',
-                    invocations: "1,248 successful calls",
-                  },
-                  {
-                    name: "quote_rate(service_name: string)",
-                    desc: "Queries deterministic rate matrix. Enforces anti-hallucination bounds against uncataloged pricing.",
-                    schema: '{"service_name": "string", "unit_quantity": "integer"}',
-                    invocations: "3,890 queries",
-                  },
-                  {
-                    name: "escalate_to_human(reason: string, priority: string)",
-                    desc: "Performs instant SIP trunk transfer to human on-duty supervisor line +91 98000 00000.",
-                    schema: '{"reason": "string", "caller_number": "string", "urgency": "high | standard"}',
-                    invocations: "14 transfers",
-                  },
-                ].map((tool, i) => (
-                  <div key={i} className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Code2 className="w-4 h-4 text-[#5e6ad2]" />
-                        <span className="text-xs font-mono font-medium text-[#f7f8f8]">{tool.name}</span>
-                      </div>
-                      <span className="text-[10px] font-mono text-[#27a644] bg-[#141516] px-2 py-0.5 rounded border border-[#23252a]">
-                        Deterministic
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#8a8f98]">{tool.desc}</p>
-                    <div className="bg-[#090a0c] border border-[#23252a] rounded p-2 text-[11px] font-mono text-[#d0d6e0]">
-                      {tool.schema}
-                    </div>
-                    <div className="flex items-center justify-between pt-1 text-[10px] font-mono text-[#62666d]">
-                      <span>Latency: &lt;12ms execution</span>
-                      <span>{tool.invocations}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Tab 4: Deterministic Guardrails & Invariants */}
-            {studioTab === "invariants" && (
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-2">
-                  <div className="flex items-center justify-between border-b border-[#1c1d22] pb-2">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-[#27a644]" />
-                      <span className="text-xs font-medium text-[#f7f8f8]">Active Invariant Verification Engine</span>
-                    </div>
-                    <span className="text-[10px] font-mono text-[#27a644]">100% PASSING (102 TESTS)</span>
-                  </div>
-                  <p className="text-xs text-[#8a8f98]">
-                    Invariants are strictly enforced via programmatic pre-checks and output validation before any token is passed to Bulbul TTS.
-                  </p>
-                </div>
-
-                {preset.guardrails.map((g, i) => (
-                  <div key={i} className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3 flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2.5">
-                      <CheckCircle2 className="w-4 h-4 text-[#27a644] flex-shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-medium text-[#f7f8f8]">{g.rule}</div>
-                        <div className="text-[10px] text-[#8a8f98] mt-0.5 flex items-center gap-2 font-mono">
-                          <span>CATEGORY: {g.type.toUpperCase()}</span>
-                          <span>·</span>
-                          <span className="text-[#27a644]">ENFORCED IN SILICON</span>
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-mono bg-[#141516] text-[#27a644] px-2 py-0.5 rounded border border-[#23252a]">
-                      Active
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+                  <button className="end-call" onClick={endCall}>
+                    <PhoneOff size={17} />End call
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        ) : (
-          /* Call Logs & Audio Recordings Table */
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-4 space-y-3">
-            <div className="flex items-center justify-between">
+        </div>
+      )}
+
+      {/* Export Deployment Spec Modal */}
+      {showDeployModal && (
+        <div className="deploy-modal-backdrop" onClick={() => setShowDeployModal(false)}>
+          <div className="deploy-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="deploy-modal-header">
               <div>
-                <h2 className="text-sm font-medium text-[#f7f8f8]">Inbound Call Sessions & Telephony Recordings</h2>
-                <p className="text-xs text-[#8a8f98]">Verified dual-channel recordings, TTFA latency breakdowns, and turn transcripts.</p>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Export Deployment Specification</h3>
+                <small style={{ color: "var(--muted)", fontSize: 13 }}>
+                  Target: {activeProfile.name} · Engine: {activeProfile.engine}
+                </small>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-[#8a8f98] bg-[#0f1011] px-2 py-1 rounded border border-[#23252a]">
-                  Total: 102 Completed Calls
-                </span>
-              </div>
+              <button className="icon-button" onClick={() => setShowDeployModal(false)} aria-label="Close">
+                <X size={16} />
+              </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto border border-[#23252a] rounded-lg bg-[#0f1011]">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#141516] border-b border-[#23252a] text-[#8a8f98] font-mono text-[11px]">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Session ID</th>
-                    <th className="px-3 py-2 font-medium">Caller</th>
-                    <th className="px-3 py-2 font-medium">Service Intent</th>
-                    <th className="px-3 py-2 font-medium">Duration</th>
-                    <th className="px-3 py-2 font-medium">TTFA</th>
-                    <th className="px-3 py-2 font-medium">Tool Invoked</th>
-                    <th className="px-3 py-2 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#1c1d22]">
-                  {HISTORICAL_CALLS.map((c) => (
-                    <tr key={c.id} className="hover:bg-[#141516]/60 transition-colors">
-                      <td className="px-3 py-2.5 font-mono text-[#5e6ad2] font-medium">{c.id}</td>
-                      <td className="px-3 py-2.5 font-mono text-[#f7f8f8]">{c.caller}</td>
-                      <td className="px-3 py-2.5 text-[#d0d6e0]">{c.intent}</td>
-                      <td className="px-3 py-2.5 font-mono text-[#8a8f98]">{c.duration}</td>
-                      <td className="px-3 py-2.5 font-mono text-[#27a644]">{c.ttfa}ms</td>
-                      <td className="px-3 py-2.5 font-mono text-[#8a8f98]">{c.toolUsed}</td>
-                      <td className="px-3 py-2.5">
-                        <span
-                          className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
-                            c.status === "Booked"
-                              ? "bg-[#141516] text-[#27a644] border-[#27a644]/40"
-                              : c.status === "Completed"
-                              ? "bg-[#141516] text-[#5e6ad2] border-[#5e6ad2]/40"
-                              : c.status === "Rejected"
-                              ? "bg-[#141516] text-[#f59e0b] border-[#f59e0b]/40"
-                              : "bg-[#141516] text-[#e5484d] border-[#e5484d]/40"
-                          }`}
-                        >
-                          {c.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* ─────────────────────────────────────────────────────────────
-          3. RIGHT TELEPHONY STUDIO: Live Audio Simulator (w-[460px])
-         ───────────────────────────────────────────────────────────── */}
-      <section className="w-[460px] flex-shrink-0 bg-[#08090a] border-l border-[#23252a] flex flex-col h-full overflow-hidden z-10">
-        {/* Right Header */}
-        <div className="h-12 border-b border-[#23252a] px-3.5 flex items-center justify-between flex-shrink-0 bg-[#08090a]">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isOnCall ? "bg-[#27a644] animate-pulse" : "bg-[#62666d]"}`} />
-            <span className="text-xs font-medium text-[#f7f8f8]">Interactive Telephony Console</span>
-            {isOnCall && (
-              <span className="text-[10px] font-mono bg-[#141516] text-[#27a644] px-1.5 py-0.5 rounded border border-[#23252a]">
-                {formatDuration(callDuration)}
-              </span>
-            )}
-          </div>
-
-          <button
-            onClick={handleToggleCall}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-              isOnCall
-                ? "bg-[#e5484d] hover:bg-[#ff6166] text-white"
-                : "bg-[#5e6ad2] hover:bg-[#828fff] text-white shadow-sm"
-            }`}
-          >
-            {isOnCall ? (
-              <>
-                <PhoneOff className="w-3 h-3" />
-                <span>Disconnect</span>
-              </>
-            ) : (
-              <>
-                <PhoneIncoming className="w-3 h-3" />
-                <span>Start Inbound Call</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Studio Acoustic Spectrum Analyzer (Linear Audio Visualizer) */}
-        <div className="p-3 border-b border-[#23252a] bg-[#08090a] flex-shrink-0">
-          <LinearAudioVisualizer state={voiceAgentState} telephonyActive={isOnCall} />
-        </div>
-
-        {/* Live Conversation Stream (Strictly Viewport Scrollable) */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0 bg-[#08090a]">
-          {turns.map((turn) => {
-            const isAgent = turn.sender === "agent";
-            return (
-              <div
-                key={turn.id}
-                className={`flex flex-col ${isAgent ? "items-start" : "items-end"}`}
+            <div className="deploy-modal-tabs">
+              <button
+                className={deployModalTab === "docker" ? "active" : ""}
+                onClick={() => setDeployModalTab("docker")}
               >
-                {/* Meta Bar */}
-                <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] font-mono text-[#8a8f98]">
-                  <span className="font-medium text-[#d0d6e0]">
-                    {isAgent ? "Maya (AI Receptionist)" : "Caller (+91 98765...)"}
-                  </span>
-                  <span>·</span>
-                  <span>{turn.timestamp}</span>
-                  {turn.ttfaMs && (
-                    <span className="bg-[#141516] text-[#27a644] px-1 rounded border border-[#23252a]">
-                      {turn.ttfaMs}ms TTFA
-                    </span>
-                  )}
+                Docker Compose (Server / Cloud)
+              </button>
+              <button
+                className={deployModalTab === "apple" ? "active" : ""}
+                onClick={() => setDeployModalTab("apple")}
+              >
+                Apple Silicon (MLX / Metal)
+              </button>
+              <button
+                className={deployModalTab === "embed" ? "active" : ""}
+                onClick={() => setDeployModalTab("embed")}
+              >
+                Client Web Embed (HTML / React)
+              </button>
+            </div>
+            <div className="deploy-modal-content">
+              {deployModalTab === "docker" && (
+                <div className="code-box">
+                  <button
+                    className="code-copy-btn"
+                    onClick={async () => {
+                      await navigator.clipboard?.writeText(`version: '3.8'\nservices:\n  voice-agent:\n    image: ghcr.io/smb-voice-agent/char:latest\n    ports:\n      - "8190:8190"\n    environment:\n      - DEPLOYMENT_MODE=${activeProfile.id === "edge_rtx4060_8gb" ? "local-private" : "cloud"}\n      - TARGET_HARDWARE=${activeProfile.id}\n      - LLM_MODEL=${selectedLlm}\n      - TTS_MODEL=${selectedTts}\n      - STT_MODEL=${selectedStt}\n      - PIPELINE_MODE=${archMode}\n    deploy:\n      resources:\n        reservations:\n          devices:\n            - driver: nvidia\n              count: 1\n              capabilities: [gpu]`);
+                      setCopiedDeployCode(true);
+                      setTimeout(() => setCopiedDeployCode(false), 1500);
+                    }}
+                  >
+                    {copiedDeployCode ? "Copied!" : "Copy Compose"}
+                  </button>
+                  <pre>{`version: '3.8'
+services:
+  voice-agent:
+    image: ghcr.io/smb-voice-agent/char:latest
+    ports:
+      - "8190:8190"
+    environment:
+      - DEPLOYMENT_MODE=${activeProfile.id === "edge_rtx4060_8gb" ? "local-private" : "cloud"}
+      - TARGET_HARDWARE=${activeProfile.id}
+      - LLM_MODEL=${selectedLlm}
+      - TTS_MODEL=${selectedTts}
+      - STT_MODEL=${selectedStt}
+      - PIPELINE_MODE=${archMode}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]`}</pre>
                 </div>
+              )}
+              {deployModalTab === "apple" && (
+                <div className="code-box">
+                  <button
+                    className="code-copy-btn"
+                    onClick={async () => {
+                      await navigator.clipboard?.writeText(`#!/usr/bin/env bash\n# Apple Silicon MLX / Metal Launch Script\npip install mlx-lm uvicorn fastapi\npython -m mlx_lm.server --model ${selectedLlm.replace('llm.', '')} --port 8083 &\nuvicorn voice_api.main:app --host 0.0.0.0 --port 8190`);
+                      setCopiedDeployCode(true);
+                      setTimeout(() => setCopiedDeployCode(false), 1500);
+                    }}
+                  >
+                    {copiedDeployCode ? "Copied!" : "Copy Script"}
+                  </button>
+                  <pre>{`#!/usr/bin/env bash
+# Apple Silicon MLX / Metal Launch Script
+pip install mlx-lm uvicorn fastapi
 
-                {/* Bubble Container */}
-                <div
-                  className={`max-w-[92%] rounded-lg p-2.5 text-xs leading-relaxed ${
-                    isAgent
-                      ? "bg-[#0f1011] border border-[#23252a] text-[#f7f8f8]"
-                      : "bg-[#141516] border border-[#34343a] text-[#f7f8f8]"
-                  }`}
-                >
-                  <p>{turn.text}</p>
+# 1. Start local MLX model runner on unified memory
+python -m mlx_lm.server --model ${selectedLlm.replace('llm.', '')} --port 8083 &
 
-                  {/* Tool execution badge if invoked */}
-                  {turn.toolInvocation && (
-                    <div className="mt-2 pt-2 border-t border-[#1c1d22] text-[10px] font-mono text-[#8a8f98] bg-[#090a0c] p-1.5 rounded border border-[#23252a]">
-                      <div className="flex items-center gap-1 text-[#5e6ad2] font-semibold">
-                        <Terminal className="w-3 h-3" />
-                        <span>tool_call: {turn.toolInvocation.name}</span>
-                      </div>
-                      <div className="text-[#62666d] truncate mt-0.5">args: {turn.toolInvocation.args}</div>
-                      <div className="text-[#27a644] truncate mt-0.5">result: {turn.toolInvocation.result}</div>
-                    </div>
-                  )}
+# 2. Launch Voice Agent API server
+uvicorn voice_api.main:app --host 0.0.0.0 --port 8190`}</pre>
                 </div>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Quick Simulation Scenarios (One-tap realistic caller prompts) */}
-        <div className="p-2 border-t border-[#1c1d22] bg-[#090a0c] flex-shrink-0">
-          <div className="text-[10px] font-mono text-[#62666d] mb-1.5 px-1 flex items-center justify-between">
-            <span>QUICK SIMULATION SCENARIOS</span>
-            <span>ONE-TAP DISPATCH</span>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            <button
-              onClick={() => handleSendSimulatedSpeech("I need an AC deep cleaning tomorrow morning 10 AM")}
-              disabled={!isOnCall}
-              className="bg-[#141516] hover:bg-[#1f2126] disabled:opacity-40 text-[10px] text-[#d0d6e0] px-2 py-1 rounded border border-[#23252a] transition-colors"
-            >
-              Book Tomorrow 10 AM
-            </button>
-            <button
-              onClick={() => handleSendSimulatedSpeech("Can you come right now at 2:00 AM? It is urgent")}
-              disabled={!isOnCall}
-              className="bg-[#141516] hover:bg-[#1f2126] disabled:opacity-40 text-[10px] text-[#d0d6e0] px-2 py-1 rounded border border-[#23252a] transition-colors"
-            >
-              Test 2 AM Invariant
-            </button>
-            <button
-              onClick={() => handleSendSimulatedSpeech("What is your fixed price for gas refill and diagnostic?")}
-              disabled={!isOnCall}
-              className="bg-[#141516] hover:bg-[#1f2126] disabled:opacity-40 text-[10px] text-[#d0d6e0] px-2 py-1 rounded border border-[#23252a] transition-colors"
-            >
-              Ask Service Rates
-            </button>
+              )}
+              {deployModalTab === "embed" && (
+                <div className="code-box">
+                  <button
+                    className="code-copy-btn"
+                    onClick={async () => {
+                      await navigator.clipboard?.writeText(`<script\n  src="https://demo.smbvoice.internal/embed.js"\n  data-agent-id="agt_production"\n  data-preset="${preset.id}"\n  data-theme="white-orb"\n></script>`);
+                      setCopiedDeployCode(true);
+                      setTimeout(() => setCopiedDeployCode(false), 1500);
+                    }}
+                  >
+                    {copiedDeployCode ? "Copied!" : "Copy Embed"}
+                  </button>
+                  <pre>{`<!-- Embed Voice Agent Orb in Any Public Website -->
+<script
+  src="https://demo.smbvoice.internal/embed.js"
+  data-agent-id="agt_production"
+  data-preset="${preset.id}"
+  data-theme="white-orb"
+></script>`}</pre>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Simulated Customer Speech Input Bar */}
-        <div className="p-2.5 border-t border-[#23252a] bg-[#0b0c0e] flex-shrink-0">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendSimulatedSpeech();
-            }}
-            className="flex items-center gap-1.5"
-          >
-            <input
-              type="text"
-              disabled={!isOnCall}
-              value={simulatedInput}
-              onChange={(e) => setSimulatedInput(e.target.value)}
-              placeholder={isOnCall ? "Type simulated customer speech..." : "Start inbound call to test..."}
-              className="flex-1 bg-[#090a0c] border border-[#23252a] rounded-md px-2.5 py-1.5 text-xs text-[#f7f8f8] placeholder-[#62666d] focus:outline-none focus:border-[#5e69d1] focus:ring-1 focus:ring-[#5e69d1]/50 disabled:opacity-50"
-            />
-
-            <button
-              type="submit"
-              disabled={!isOnCall || !simulatedInput.trim()}
-              className="bg-[#5e6ad2] hover:bg-[#828fff] disabled:opacity-40 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1 flex-shrink-0 shadow-sm"
-            >
-              <span>Transmit</span>
-              <Send className="w-3 h-3" />
-            </button>
-          </form>
-          <div className="flex items-center justify-between text-[10px] font-mono text-[#62666d] mt-1.5 px-0.5">
-            <span>Press ⏎ to transmit speech</span>
-            <span>VAD Mode: Continuous 20ms</span>
-          </div>
-        </div>
-      </section>
+      )}
     </div>
   );
 };
+
+const CallRow = ({ call, expanded = false }: { call: CallLogEntry; expanded?: boolean }) => (
+  <div className={`call-row ${expanded ? "call-row--expanded" : ""}`}>
+    <div className="caller">
+      <span>{call.caller.split(" ").map((part) => part[0]).join("")}</span>
+      <div>
+        <strong>{call.caller}</strong>
+        <small>{call.phone}</small>
+      </div>
+    </div>
+    <div className="outcome">
+      <i className={`tone-${call.tone}`} />
+      {call.outcome}
+    </div>
+    <div className="call-time">
+      <Clock3 size={13} />{call.time}
+    </div>
+    {expanded && <div className="duration">{call.duration}</div>}
+    <button className="row-action">
+      <Headphones size={15} />{expanded && "Review"}
+    </button>
+  </div>
+);

@@ -48,7 +48,12 @@ class AgentVersion(BaseModel):
     system_prompt: str = ""
     tools: list[ToolSpec] = Field(default_factory=list)
     business_profile: BusinessProfile = Field(default_factory=BusinessProfile)
-    model_id: str = ""
+    model_id: str = "llm.chomp.fast"
+    stt_model_id: str = "stt.whisper.small"
+    tts_model_id: str = "tts.kokoro.en"
+    pipeline_mode: str = "cascaded"
+    paralinguistic_tags: bool = False
+    autonomous_recovery: bool = True
     checksum: str = ""
 
     @model_validator(mode="after")

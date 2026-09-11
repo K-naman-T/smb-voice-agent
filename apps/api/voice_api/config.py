@@ -29,7 +29,7 @@ class Settings:
     api_port: int = 8190
     database_url: str = "sqlite:///./var/dev.sqlite3"
     llama_base_url: str = "http://127.0.0.1:8083/v1"
-    llama_api_key: str = ""
+    llama_api_key: str = "change-me-high-entropy"
     livekit_url: str = "ws://127.0.0.1:7880"
     livekit_api_key: str = ""
     livekit_api_secret: str = ""
@@ -66,7 +66,7 @@ def load_settings() -> Settings:
         or "sqlite:///./var/dev.sqlite3",
         llama_base_url=_env("LLAMA_BASE_URL", "http://127.0.0.1:8083/v1")
         or "http://127.0.0.1:8083/v1",
-        llama_api_key=_env("LLAMA_API_KEY", "") or "",
+        llama_api_key=_env("LLAMA_API_KEY", "change-me-high-entropy") or "change-me-high-entropy",
         livekit_url=_env("LIVEKIT_URL", "ws://127.0.0.1:7880") or "ws://127.0.0.1:7880",
         livekit_api_key=_env("LIVEKIT_API_KEY", "") or "",
         livekit_api_secret=_env("LIVEKIT_API_SECRET", "") or "",

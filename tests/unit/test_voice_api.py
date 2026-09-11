@@ -34,6 +34,11 @@ init_db(f"sqlite:///{tmp_db_path}")
 client = TestClient(app)
 
 
+def setup_module():
+    reset_engine()
+    init_db(f"sqlite:///{tmp_db_path}")
+
+
 def teardown_module():
     reset_engine()
     if os.path.exists(tmp_db_path):
@@ -133,3 +138,40 @@ def test_tenant_creation_and_api_key_flow():
     apt_resp2 = client.post("/api/v1/appointments", json=apt_data, headers=headers_a)
     assert apt_resp2.status_code == 201
     assert apt_resp2.json()["id"] == apt_id
+
+
+def test_models_catalog_endpoint():
+    """Verify models catalog and configurator presets are available."""
+    resp = client.get("/api/v1/models")
+    assert resp.status_code == 200
+    models = resp.json()
+    assert len(models) >= 5
+
+    # Check key models are present
+    model_ids = {m["id"] for m in models}
+    assert "llm.chomp.fast" in model_ids
+    assert "llm.qwen3_8.flash_next" in model_ids
+    assert "s2s.nvidia.personaplex" in model_ids
+    assert "tts.kokoro.en" in model_ids
+    assert "stt.moonshine" in model_ids
+
+    # Check presets
+    presets_resp = client.get("/api/v1/models/presets")
+    assert presets_resp.status_code == 200
+    presets = presets_resp.json()["presets"]
+    assert len(presets) >= 4
+    preset_architectures = {p["architecture"] for p in presets}
+    assert "cascaded" in preset_architectures
+    assert "full_duplex_s2s" in preset_architectures
+
+    # Check hardware profiles (public demo, edge, apple silicon, browser webgpu)
+    hw_resp = client.get("/api/v1/models/hardware-profiles")
+    assert hw_resp.status_code == 200
+    profiles = hw_resp.json()["profiles"]
+    assert len(profiles) >= 4
+    p_ids = {p["id"] for p in profiles}
+    assert "cloud_l4_24gb" in p_ids
+    assert "edge_rtx4060_8gb" in p_ids
+    assert "apple_silicon_36gb" in p_ids
+    assert "client_webgpu" in p_ids
+

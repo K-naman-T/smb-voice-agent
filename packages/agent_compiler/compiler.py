@@ -115,8 +115,13 @@ def compile_agent_version(
     tenant_id: str,
     profile: Optional[BusinessProfile] = None,
     industry: str = "hvac",
-    model_id: str = "Qwen3.5-9B-Q4_K_M.gguf",
+    model_id: str = "llm.chomp.fast",
     version_num: int = 1,
+    stt_model_id: str = "stt.whisper.small",
+    tts_model_id: str = "tts.kokoro.en",
+    pipeline_mode: str = "cascaded",
+    paralinguistic_tags: bool = False,
+    autonomous_recovery: bool = True,
 ) -> AgentVersion:
     """Compile structured business profile into an immutable AgentVersion."""
     kit = get_industry_kit(industry)
@@ -143,4 +148,9 @@ def compile_agent_version(
         tools=tools,
         business_profile=profile,
         model_id=model_id,
+        stt_model_id=stt_model_id,
+        tts_model_id=tts_model_id,
+        pipeline_mode=pipeline_mode,
+        paralinguistic_tags=paralinguistic_tags,
+        autonomous_recovery=autonomous_recovery,
     )
