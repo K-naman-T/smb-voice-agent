@@ -634,7 +634,7 @@ export const LinearVoiceStudio: React.FC<LinearVoiceStudioProps> = ({ onExitStud
         <div>
           <div className="brand-row">
             <div className="brand-mark"><span /><span /><span /></div>
-            <span className="brand-name">Vaani</span>
+            <span className="brand-name">OFY</span>
             {onExitStudio && (
               <button
                 className="exit-link-btn"

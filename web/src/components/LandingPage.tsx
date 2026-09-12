@@ -1,740 +1,1686 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Play, RotateCcw, ArrowRight,
-  Check, ChevronDown, ChevronUp,
-  Sparkles, Phone
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Clock,
+  AlertTriangle,
+  Pause,
+  Play,
+  Phone,
+  RotateCcw,
+  ShieldCheck,
+  Tag,
+  CalendarCheck,
+  Server,
+  Languages,
+  Mic,
+  Lock,
+  Menu,
+  X,
+  Zap,
+  CloudOff,
 } from "lucide-react";
 
 interface LandingPageProps {
   onLaunchStudio: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchStudio }) => {
-  // Preset selection for the Center Console
-  const [activeVertical, setActiveVertical] = useState<"hvac" | "plumbing" | "dental">("hvac");
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [currentCallStep, setCurrentCallStep] = useState<"ready" | "inquiry" | "interrupted" | "booked">("ready");
-  
-  // Scrubber state for the 300ms Acoustic Anatomy section
-  const [scrubberMs, setScrubberMs] = useState(280);
+/* ------------------------------------------------------------------ */
+/*  Design tokens — OFY warm-studio system (see DESIGN.md)           */
+/* ------------------------------------------------------------------ */
+const INK = "#151412";
+const INK_2 = "#55514B";
+const INK_3 = "#6E6A63";
+const CANVAS = "#FBFAF8";
+const BAND = "#F5F2ED";
+const CARD = "#FFFFFF";
+const HAIRLINE = "#E8E4DD";
+const HAIRLINE_2 = "#D8D2C8";
+const GREEN = "#1B5E3C";
+const GREEN_SOFT = "#E7F0EB";
+const SUCCESS = "#267358";
 
-  // Revenue Calculator state
-  const [weeklyMissed, setWeeklyMissed] = useState(16);
-  const [avgTicket, setAvgTicket] = useState(850);
+const display = "font-archivo";
+const mono = "font-mono";
+const displayStyle: React.CSSProperties = { fontVariationSettings: '"wdth" 84' };
 
-  // Expanded dispatch ledger item
-  const [expandedLedger, setExpandedLedger] = useState<number | null>(0);
+const scrollToCallAndPlay = () => {
+  const el = document.getElementById("call");
+  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  window.setTimeout(() => window.dispatchEvent(new CustomEvent("ofy:play-call")), 700);
+};
 
-  const presets = {
-    hvac: {
-      business: "CoolAir Climate Systems",
-      caller: "Mrs. Sarah Jenkins",
-      issue: "AC unit leaking water inside living room",
-      greeting: "Namaste! You've reached CoolAir Climate. I'm Maya, the front-desk coordinator. Is your AC blowing warm air, or are you looking to schedule routine maintenance?",
-      inquiryText: "My outdoor unit stopped spinning, and water is pooling under the indoor vent onto our floor.",
-      mayaResponse: "I'm so sorry to hear that. That usually indicates a backed-up condensate line or frozen coil. We have a technician in your neighborhood between 1:30 PM and 3:30 PM today. Inspection is $79, credited toward any repair. Can I hold that slot for you?",
-      interruptedText: "Wait! My husband won't be back from work until 5:00 PM. Do you have anything after 5:30?",
-      mayaPivot: "Absolutely! We can accommodate that. Our evening technician has an opening between 5:30 PM and 7:00 PM tonight. Would that fit his schedule better?",
-      bookedText: "Locked in for tonight between 5:30 and 7:00 PM. Confirmation code #CL-402 committed to schedule. A calendar pass and technician tracker have been sent to your phone.",
-      ticket: "$920 Estimated Job",
-    },
-    plumbing: {
-      business: "Titan Commercial & Home Plumbing",
-      caller: "Marcus Vance",
-      issue: "Kitchen main sewer line backing up",
-      greeting: "Titan Plumbing! I'm Maya, the dispatch coordinator. Do you have an active flood emergency, or can I schedule a general service visit?",
-      inquiryText: "Our main floor drain is backing up into the utility room right now. Water is starting to spread.",
-      mayaResponse: "That is an active priority hazard. I can roll our emergency hydro-jetting rig to your address immediately—estimated arrival within 35 minutes. Shall I dispatch the crew?",
-      interruptedText: "Wait, will this require shutting off the water to our entire building?",
-      mayaPivot: "No, we can isolate just the utility riser valve so the rest of the building retains full water pressure. Confirming your emergency dispatch now?",
-      bookedText: "Emergency crew dispatched. ETA 32 minutes. Priority unit #TTN-049 locked. A live GPS tracking link has been texted to your mobile.",
-      ticket: "$1,450 Emergency Dispatch",
-    },
-    dental: {
-      business: "Metropolitan Dental Group",
-      caller: "Elena Rostova",
-      issue: "Chipped upper premolar with nerve sensitivity",
-      greeting: "Metropolitan Dental. I'm Maya. Are you an existing patient, or would you like to schedule an appointment?",
-      inquiryText: "I cracked my upper premolar at lunch today and it throbs whenever cold water or air hits it.",
-      mayaResponse: "Ouch, I'm so sorry! Dr. Chen reserves daily priority slots for dental trauma. We have an opening today at 3:15 PM to relieve the pain and take digital imaging. Would you like that chair?",
-      interruptedText: "Does your practice accept Delta Dental Premier PPO?",
-      mayaPivot: "Yes, we are in-network with Delta Dental Premier. Your emergency exam and stabilization will be billed under standard preventative terms. Shall I reserve 3:15 PM?",
-      bookedText: "Reserved. 3:15 PM today with Dr. Chen. Patient file #MET-708 locked into clinic calendar. We've sent intake documents directly to your phone.",
-      ticket: "$380 Diagnostic & Stabilization",
-    },
-  };
+/* ------------------------------------------------------------------ */
+/*  Small primitives                                                   */
+/* ------------------------------------------------------------------ */
 
-  const ledgerItems = [
-    {
-      time: "8:14 PM",
-      label: "After-Hours Emergency",
-      caller: "Sarah M.",
-      problem: "AC Compressor froze; water dripping into ceiling drywall",
-      resolution: "Evening slot reserved (5:30–7:00 PM); fee confirmed; SMS sent",
-      value: "$850",
-      category: "HVAC",
-    },
-    {
-      time: "11:02 PM",
-      label: "Night Shift Inbound",
-      caller: "Marcus T.",
-      problem: "Kitchen sink drain gurgling with sewer backflow",
-      resolution: "Emergency jetting crew dispatched in 35 mins; riser valve guidance given",
-      value: "$1,400",
-      category: "Plumbing",
-    },
-    {
-      time: "6:15 AM",
-      label: "Early Morning Priority",
-      caller: "Elena R.",
-      problem: "Cracked molar throbbing from exposed dentin",
-      resolution: "3:15 PM trauma chair reserved with Dr. Chen; insurance pre-verified",
-      value: "$420",
-      category: "Dental",
-    },
-    {
-      time: "Sunday 2:40 PM",
-      label: "Weekend Request",
-      caller: "Dave K.",
-      problem: "Brake squeal and rotor grinding on 2022 Audi Q5",
-      resolution: "Bay 2 reserved for Wednesday 8:30 AM; overnight key-drop confirmed",
-      value: "$580",
-      category: "Auto",
-    },
+const Mark: React.FC<{ size?: number }> = ({ size = 30 }) => (
+  <span
+    className="inline-flex items-center justify-center rounded-full flex-none"
+    style={{ width: size, height: size, background: GREEN, color: "#fff" }}
+  >
+    <svg width={size * 0.52} height={size * 0.52} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 12c2.4 0 2.4-6 4.8-6s2.4 12 4.8 12 2.4-9 4.8-9 1.2 3 3.6 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  </span>
+);
+
+const Eyebrow: React.FC<{ children: React.ReactNode; center?: boolean; tone?: "light" | "dark" }> = ({ children, center, tone = "light" }) => (
+  <div
+    className={`${center ? "text-center " : ""}${mono} text-[11px] font-semibold uppercase tracking-[0.18em]`}
+    style={{ color: tone === "light" ? INK_3 : "#9DBFAD" }}
+  >
+    {children}
+  </div>
+);
+
+const SectionHead: React.FC<{ label: string; title: React.ReactNode; sub?: React.ReactNode; center?: boolean }> = ({ label, title, sub, center }) => (
+  <div className={`${center ? "text-center mx-auto" : ""} max-w-2xl`}>
+    <Eyebrow center={center}>{label}</Eyebrow>
+    <h2
+      className={`${display} mt-3 text-[clamp(27px,3.3vw,38px)] leading-[1.1] tracking-[-0.02em]`}
+      style={{ color: INK, fontWeight: 560, ...displayStyle }}
+    >
+      {title}
+    </h2>
+    {sub && (
+      <p className={`mt-4 text-[15px] leading-relaxed ${center ? "mx-auto" : ""} max-w-xl`} style={{ color: INK_2 }}>
+        {sub}
+      </p>
+    )}
+  </div>
+);
+
+const Reveal: React.FC<{ children: React.ReactNode; delay?: number; className?: string }> = ({ children, delay = 0, className = "" }) => (
+  <motion.div
+    className={className}
+    initial={{ opacity: 0, y: 18 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: "-60px" }}
+    transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
+  >
+    {children}
+  </motion.div>
+);
+
+/* Decorative ink-dot rings — the print-shop texture, drawn not generated. */
+const RingField: React.FC<{ className?: string; rings?: number; strength?: number }> = ({ className = "", rings = 15, strength = 1 }) => {
+  const list = Array.from({ length: rings }, (_, i) => {
+    const r = 46 + i * 27;
+    const dash = 0.7 + ((i * 7) % 5) * 0.42;
+    const gap = 4.6 + ((i * 11) % 7) * 0.72;
+    const op = Math.max(0.045, (0.22 - i * 0.01)) * strength;
+    return { r, dash, gap, op };
+  });
+  return (
+    <svg viewBox="0 0 900 900" className={className} aria-hidden="true" focusable="false">
+      {list.map((ring, i) => (
+        <circle
+          key={i}
+          cx="450"
+          cy="450"
+          r={ring.r}
+          fill="none"
+          stroke={INK}
+          strokeOpacity={ring.op}
+          strokeWidth={1.4}
+          strokeDasharray={`${ring.dash} ${ring.gap}`}
+          strokeLinecap="round"
+        />
+      ))}
+    </svg>
+  );
+};
+
+/* Audio-reactive bar waveform (canvas, DPR-aware). */
+const WaveCanvas: React.FC<{ active: boolean; bars?: number; color?: string; className?: string }> = ({
+  active,
+  bars = 44,
+  color = GREEN,
+  className = "",
+}) => {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    let raf = 0;
+    let t = 0;
+    const levels = new Array(bars).fill(0.06) as number[];
+    const draw = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth || 320;
+      const h = canvas.clientHeight || 40;
+      if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+      }
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      t += 0.05;
+      const bw = 2;
+      const gap = Math.max(1.5, (w - bars * bw) / (bars - 1));
+      for (let i = 0; i < bars; i++) {
+        const center = 1 - Math.abs(i - bars * 0.5) / (bars * 0.62);
+        const seed = ((i * 2654435761) % 100) / 100;
+        const noise = activeRef.current
+          ? (Math.sin(t * 3.3 + i * 0.55) * 0.5 + 0.5) * 0.72 + seed * 0.4
+          : 0.04 + seed * 0.1;
+        const target = Math.min(1, 0.09 + noise * Math.max(0.12, center) * (activeRef.current ? 0.92 : 0.5));
+        levels[i] += (target - levels[i]) * 0.17;
+        const bh = Math.max(3, levels[i] * h);
+        const x = i * (bw + gap);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = activeRef.current ? 0.95 : 0.4;
+        if (typeof (ctx as unknown as { roundRect?: unknown }).roundRect === "function") {
+          ctx.beginPath();
+          ctx.roundRect(x, h - bh, bw, bh, 1);
+          ctx.fill();
+        } else {
+          ctx.fillRect(x, h - bh, bw, bh);
+        }
+      }
+      ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [bars, color]);
+
+  return <canvas ref={ref} className={className} aria-hidden="true" />;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Data                                                               */
+/* ------------------------------------------------------------------ */
+
+interface VerticalPreset {
+  id: string;
+  tab: string;
+  business: string;
+  category: string;
+  caller: string;
+  greeting: string;
+  inquiry: string;
+  response: string;
+  interrupt: string;
+  pivot: string;
+  booked: string;
+  bookingChip: string;
+  value: string;
+}
+
+const PRESETS: Record<string, VerticalPreset> = {
+  hvac: {
+    id: "hvac",
+    tab: "HVAC",
+    business: "CoolAir Climate Systems",
+    category: "Heating & Cooling",
+    caller: "Sarah M.",
+    greeting:
+      "Thank you for calling CoolAir Climate Systems — this is Maya at the front desk. Is your AC acting up, or would you like to schedule service?",
+    inquiry: "Our outdoor unit stopped spinning, and water is pooling under the indoor vent onto the floor.",
+    response:
+      "I'm sorry — that usually means a backed-up condensate line or a frozen coil. I have a technician in your neighborhood between 1:30 and 3:30 today. The diagnostic is $79 and it's credited toward the repair. May I hold that window?",
+    interrupt: "Wait — my husband won't be home from work until 5. Do you have anything after 5:30?",
+    pivot: "Of course. Our evening technician has 5:30 to 7:00 open tonight — would that suit him better?",
+    booked:
+      "Booked — tonight, 5:30 to 7:00 PM. Confirmation CL-402 is in the schedule. I've texted the details and your technician tracker.",
+    bookingChip: "Tue · 5:30–7:00 PM · reserved",
+    value: "$920 job captured",
+  },
+  plumbing: {
+    id: "plumbing",
+    tab: "Plumbing",
+    business: "Titan Plumbing Co.",
+    category: "Commercial & Home Plumbing",
+    caller: "Marcus T.",
+    greeting: "Titan Plumbing — this is Maya. Do you have an active leak, or would you like to schedule a service visit?",
+    inquiry: "The main floor drain is backing up into the utility room right now — water is starting to spread.",
+    response:
+      "That's a priority — I can send the hydro-jet crew straight out, arrival within about 35 minutes. Before I dispatch, can you confirm the address on file?",
+    interrupt: "Wait — will that mean shutting off the water for the whole building?",
+    pivot:
+      "No — we isolate just the utility riser valve, so the rest of the building keeps full pressure. Confirming the emergency dispatch now — crew ETA 32 minutes.",
+    booked:
+      "Crew dispatched — priority unit TTN-049 is locked in, ETA 32 minutes. I've texted you a live tracking link and notified the on-call supervisor.",
+    bookingChip: "Today · crew ETA 32 min · dispatched",
+    value: "$1,450 emergency job",
+  },
+  dental: {
+    id: "dental",
+    tab: "Dental",
+    business: "Metropolitan Dental Group",
+    category: "Family & Emergency Dental",
+    caller: "Elena R.",
+    greeting: "Metropolitan Dental — this is Maya. Are you an existing patient, or would you like to book an appointment?",
+    inquiry: "I cracked an upper premolar at lunch and it throbs whenever anything cold touches it.",
+    response:
+      "Ouch — I'm sorry. Dr. Chen keeps priority slots open for dental trauma. There's an opening today at 3:15 PM to relieve the pain and take imaging. Would you like that chair?",
+    interrupt: "Do you take Delta Dental Premier? I don't want a surprise bill.",
+    pivot:
+      "Yes — we're in-network with Delta Dental Premier, and the emergency exam is billed under standard preventive terms. Shall I reserve 3:15 PM?",
+    booked:
+      "Reserved — 3:15 PM today with Dr. Chen, patient file MET-708 locked into the clinic calendar. I've sent the intake forms to your phone.",
+    bookingChip: "Today · 3:15 PM · reserved",
+    value: "$380 visit booked",
+  },
+};
+
+type CallStep = "ready" | "inquiry" | "pivot" | "booked";
+const STEP_ORDER: CallStep[] = ["ready", "inquiry", "pivot", "booked"];
+
+interface LedgerRow {
+  time: string;
+  trade: string;
+  caller: string;
+  problem: string;
+  resolution: string;
+  value: string;
+}
+
+const LEDGER_ROWS: LedgerRow[] = [
+  {
+    time: "Tue · 6:15 AM",
+    trade: "Dental",
+    caller: "Elena R.",
+    problem: "Cracked molar throbbing from exposed dentin",
+    resolution: "3:15 PM trauma chair reserved with Dr. Chen; insurance pre-verified; intake forms sent",
+    value: "$420",
+  },
+  {
+    time: "Tue · 11:02 AM",
+    trade: "Plumbing",
+    caller: "Marcus T.",
+    problem: "Kitchen drain gurgling with sewer backflow",
+    resolution: "Emergency crew dispatched in 35 minutes; riser-valve guidance given; on-call supervisor notified",
+    value: "$1,400",
+  },
+  {
+    time: "Tue · 2:40 PM",
+    trade: "Auto",
+    caller: "Dave K.",
+    problem: "Brake squeal and rotor grinding on a 2022 Q5",
+    resolution: "Bay 2 reserved for Thursday 8:30 AM; overnight key-drop confirmed",
+    value: "$580",
+  },
+  {
+    time: "Tue · 8:14 PM",
+    trade: "HVAC",
+    caller: "Sarah M.",
+    problem: "Compressor froze; water dripping toward ceiling drywall",
+    resolution: "Evening slot reserved for tomorrow, 5:30–7:00 PM; fee confirmed; SMS + tracker sent",
+    value: "$850",
+  },
+];
+
+interface Stage {
+  from: number;
+  to: number;
+  title: string;
+  desc: string;
+}
+
+const STAGES: Stage[] = [
+  { from: 0, to: 40, title: "Hears you", desc: "Voice detection strips background noise and finds exactly where speech starts." },
+  { from: 40, to: 110, title: "Writes it down", desc: "Local speech-to-text turns the caller's words into text — on your machine." },
+  { from: 110, to: 200, title: "Checks the facts", desc: "Availability, prices, hours, and hard rules are checked before she speaks." },
+  { from: 200, to: 280, title: "Answers", desc: "First audio plays. The caller hears a natural reply in under a third of a second." },
+];
+const TOTAL_MS = 280;
+
+const FAQS: { q: string; a: string }[] = [
+  {
+    q: "Where does OFY actually run?",
+    a: "On your machine — a GPU box, a mini-PC, or the computer behind your desk. Speech, language, and voice models all run locally; nothing is sent to third-party model APIs in the default setup.",
+  },
+  {
+    q: "Does she sound like a robot?",
+    a: "She sounds like a calm, competent receptionist — not a movie star. Local voices trade a little warmth for complete privacy, and you can swap in higher-quality voices without changing anything else.",
+  },
+  {
+    q: "Can she handle Hindi and English?",
+    a: "Yes — English and Hindi voice profiles are supported and certified independently, so you can enable either or both.",
+  },
+  {
+    q: "What happens when she can't help?",
+    a: "She hands off to a human with the full transcript and context — and for safety matters (gas, sparks, flooding) she escalates immediately, by rule.",
+  },
+  {
+    q: "How do I go live?",
+    a: "Start in the browser today. When you're ready for a real number, telephony connects through an optional adapter — off by default, enabled per number.",
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Sections                                                           */
+/* ------------------------------------------------------------------ */
+
+const Nav: React.FC<{ onLaunchStudio: () => void }> = ({ onLaunchStudio }) => {
+  const [scrolled, setScrolled] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const links = [
+    { href: "#how", label: "How it works" },
+    { href: "#console", label: "Live demo" },
+    { href: "#guardrails", label: "Guardrails" },
+    { href: "#faq", label: "FAQ" },
   ];
 
-  const playVoice = (text: string) => {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      try {
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        }
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text.replace(/[*_#`~]/g, "").trim());
-        utterance.rate = 1.02;
-        const voices = window.speechSynthesis.getVoices();
-        const naturalVoice =
-          voices.find((v) => v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Samantha")) ||
-          voices.find((v) => (v.lang.startsWith("en") || v.lang.startsWith("hi")) && !v.name.includes("Bad")) ||
-          voices[0];
-        if (naturalVoice) utterance.voice = naturalVoice;
-        window.speechSynthesis.speak(utterance);
-      } catch (_) {}
-    }
-  };
-
-  const handleRunInquiry = () => {
-    setIsPlayingAudio(true);
-    setCurrentCallStep("inquiry");
-    playVoice(presets[activeVertical].mayaResponse);
-    setTimeout(() => setIsPlayingAudio(false), 3400);
-  };
-
-  const handleRunInterrupt = () => {
-    setIsPlayingAudio(true);
-    setCurrentCallStep("interrupted");
-    playVoice(presets[activeVertical].mayaPivot);
-    setTimeout(() => setIsPlayingAudio(false), 3000);
-  };
-
-  const handleRunCommit = () => {
-    setIsPlayingAudio(true);
-    setCurrentCallStep("booked");
-    playVoice(presets[activeVertical].bookedText);
-    setTimeout(() => setIsPlayingAudio(false), 3600);
-  };
-
-  const handleResetConsole = () => {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch (_) {}
-    }
-    setIsPlayingAudio(false);
-    setCurrentCallStep("ready");
-  };
-
-  // Lost revenue formula: 35% of missed callers book immediately with instant pickup
-  const monthlyRecoverable = Math.round(weeklyMissed * 4.33 * 0.35 * avgTicket);
-  const annualRecoverable = monthlyRecoverable * 12;
-
   return (
-    <div className="min-h-screen bg-[#F6F4F0] text-[#141311] font-jakarta antialiased selection:bg-[#1B5E3C] selection:text-white">
-      {/* Topbar: Minimal & Functional */}
-      <header className="sticky top-0 z-50 bg-[#F6F4F0]/90 backdrop-blur-xl border-b border-[#E6E2DC] px-6 md:px-12 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#1B5E3C] text-white flex items-center justify-center font-bold text-xs shadow-sm">
-            V
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-display font-bold text-base tracking-tight text-[#141311]">Vaani</span>
-            <span className="text-xs text-[#7A746C] hidden sm:inline">/ 24·7 Autonomous Inbound Dispatch</span>
-          </div>
-        </div>
+    <header
+      className="sticky top-0 z-50 transition-shadow"
+      style={{
+        background: "rgba(251,250,248,0.88)",
+        backdropFilter: "blur(14px)",
+        borderBottom: `1px solid ${scrolled ? HAIRLINE : "transparent"}`,
+        boxShadow: scrolled ? "0 1px 0 rgba(21,20,18,0.04), 0 12px 32px -24px rgba(21,20,18,0.25)" : "none",
+      }}
+    >
+      <div className="mx-auto flex h-16 max-w-[1120px] items-center justify-between px-5 md:px-8">
+        <a href="#top" className="flex items-center gap-3" aria-label="OFY home">
+          <Mark />
+          <span className={`${display} text-[17px] font-semibold tracking-[-0.01em]`} style={{ color: INK }}>
+            OFY
+          </span>
+        </a>
 
-        <div className="flex items-center gap-6">
-          <a href="#console" className="text-sm font-semibold text-[#6B655D] hover:text-[#141311] transition-colors hidden md:block">
-            Live Phone Console
-          </a>
-          <a href="#ledger" className="text-sm font-semibold text-[#6B655D] hover:text-[#141311] transition-colors hidden md:block">
-            Captured Jobs Ledger
-          </a>
-          <a href="#anatomy" className="text-sm font-semibold text-[#6B655D] hover:text-[#141311] transition-colors hidden md:block">
-            Acoustic Speed
-          </a>
+        <nav className="hidden md:flex items-center gap-7" aria-label="Main">
+          {links.map((l) => (
+            <a key={l.href} href={l.href} className="text-[14px] font-medium transition-colors hover:opacity-70" style={{ color: "#3F3B36" }}>
+              {l.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-3">
           <button
             onClick={onLaunchStudio}
-            style={{ color: "#ffffff", backgroundColor: "#141311" }}
-            className="px-5 py-2.5 rounded-full hover:bg-[#2C2A26] font-semibold text-sm transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+            className="hidden sm:inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13.5px] font-semibold text-white transition-transform hover:-translate-y-[1px]"
+            style={{ background: INK }}
           >
-            Launch Studio <ArrowRight className="w-4 h-4 text-white" />
+            Open studio
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+          <button
+            className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-full border"
+            style={{ borderColor: HAIRLINE_2, color: INK }}
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <X style={{ width: 18, height: 18 }} /> : <Menu style={{ width: 18, height: 18 }} />}
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* 1. THE OPENING CANVAS (Editorial Center-Stage Phone Console) */}
-      <section className="relative pt-16 pb-24 px-6 md:px-12 border-b border-[#E6E2DC]">
-        <div className="max-w-5xl mx-auto text-center">
-          {/* Main Statement */}
-          <motion.h1
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="font-display text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.035em] leading-[1.04] text-[#141311]"
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="md:hidden overflow-hidden border-t"
+            style={{ borderColor: HAIRLINE, background: CANVAS }}
           >
-            When your phone rings, three rings later they call your competitor.
-          </motion.h1>
+            <div className="flex flex-col px-6 py-3">
+              {links.map((l) => (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setOpen(false)}
+                  className="py-3 text-[14px] font-medium border-b last:border-b-0"
+                  style={{ borderColor: HAIRLINE, color: INK }}
+                >
+                  {l.label}
+                </a>
+              ))}
+              <button
+                onClick={onLaunchStudio}
+                className="mt-3 mb-2 inline-flex items-center justify-center gap-2 rounded-full py-3 text-[14px] font-semibold text-white"
+                style={{ background: INK }}
+              >
+                Open studio <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
+  );
+};
 
-          <motion.p
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="mt-6 text-base sm:text-lg text-[#5E5850] max-w-2xl mx-auto leading-relaxed"
+const Hero: React.FC = () => (
+  <section id="top" className="relative scroll-mt-24 overflow-hidden px-5 md:px-8">
+    <RingField className="pointer-events-none absolute left-1/2 top-[-120px] h-[820px] w-[820px] -translate-x-1/2" />
+    <div className="relative mx-auto max-w-[1120px] pb-16 pt-14 md:pb-20 md:pt-24">
+      <Reveal>
+        <div className="flex justify-center">
+          <span
+            className="inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold"
+            style={{ borderColor: HAIRLINE_2, color: INK_2, background: "rgba(255,255,255,0.55)" }}
           >
-            Vaani answers on ring one. Speaks warmly with human cadence. Quotes your exact diagnostic fees, checks real-time availability, and books confirmed appointments into your calendar.
-          </motion.p>
+            <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: SUCCESS }} />
+            Local-private AI receptionist · answers 24/7
+          </span>
         </div>
+      </Reveal>
 
-        {/* The Tactile Center Console Component */}
-        <div id="console" className="mt-14 max-w-4xl mx-auto">
-          <div className="bg-white rounded-3xl border border-[#DCD6CC] shadow-xl p-6 md:p-8 relative overflow-hidden">
-            {/* Console Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EAE5DC] pb-5 mb-6 gap-4">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#1B5E3C] animate-pulse" />
-                  <span className="font-display font-bold text-base text-[#141311] tracking-tight">
-                    {presets[activeVertical].business}
-                  </span>
-                </div>
-                <div className="text-xs text-[#7A746C] font-mono mt-0.5">
-                  Line Status: Live Inbound · Connected to Calendar
+      <Reveal delay={0.06}>
+        <h1
+          className={`${display} mx-auto mt-7 max-w-[880px] text-center text-[clamp(33px,5.6vw,72px)] leading-[1.05] tracking-[-0.022em]`}
+          style={{ color: INK, fontWeight: 600, ...displayStyle }}
+        >
+          <span className="block">When your phone rings,</span>
+          <span className="block" style={{ fontWeight: 430 }}>
+            three rings later
+          </span>
+          <span className="block">they call your competitor.</span>
+        </h1>
+      </Reveal>
+
+      <Reveal delay={0.12}>
+        <p className="mx-auto mt-6 max-w-[540px] text-center text-[16px] leading-[1.7]" style={{ color: INK_2 }}>
+          OFY answers on ring one — in your voice, with your prices — then books the job straight into
+          your calendar. She runs on your machine, not someone else's cloud.
+        </p>
+      </Reveal>
+
+      <Reveal delay={0.18}>
+        <div className="mx-auto mt-9 flex w-full max-w-[400px] flex-col items-center justify-center gap-3 sm:max-w-none sm:flex-row">
+          <a
+            href="#console"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-[14px] font-semibold text-white shadow-lg transition-transform hover:-translate-y-[1px] sm:w-auto"
+            style={{ background: INK, boxShadow: "0 18px 40px -22px rgba(21,20,18,0.55)" }}
+          >
+            Try the live demo
+            <ArrowRight className="h-4 w-4" />
+          </a>
+          <button
+            onClick={scrollToCallAndPlay}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border px-6 py-3.5 text-[14px] font-semibold transition-colors hover:bg-white sm:w-auto"
+            style={{ borderColor: HAIRLINE_2, color: INK, background: "rgba(255,255,255,0.6)" }}
+          >
+            <Play className="h-4 w-4" style={{ color: GREEN }} />
+            Hear a real call
+          </button>
+        </div>
+        <p className="mt-4 text-center text-[13px]" style={{ color: INK_2 }}>
+          No signup — the demo runs right here in your browser.
+        </p>
+      </Reveal>
+
+      <Reveal delay={0.24}>
+        <div
+          className="mx-auto mt-11 max-w-[880px] divide-y rounded-2xl border md:grid md:grid-cols-4 md:divide-y-0"
+          style={{ borderColor: HAIRLINE, background: "rgba(255,255,255,0.6)", ["--tw-divide-opacity" as string]: "1" }}
+        >
+          {[
+            { icon: Server, k: "Runs on your hardware" },
+            { icon: Languages, k: "English + Hindi" },
+            { icon: Zap, k: "Sub-300 ms replies" },
+            { icon: CalendarCheck, k: "Books real appointments" },
+          ].map((item) => (
+            <div key={item.k} className="flex items-center gap-2.5 px-5 py-3.5 md:justify-center md:border-l md:py-0 md:first:border-l-0" style={{ borderColor: HAIRLINE }}>
+              <item.icon className="h-4 w-4 flex-none" style={{ color: GREEN }} />
+              <span className="text-[13px] font-semibold" style={{ color: "#46423C" }}>
+                {item.k}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Reveal>
+    </div>
+  </section>
+);
+
+const LiveConsole: React.FC = () => {
+  const [vertical, setVertical] = useState<keyof typeof PRESETS>("hvac");
+  const [step, setStep] = useState<CallStep>("ready");
+  const [autoPlaying, setAutoPlaying] = useState(false);
+  const preset = PRESETS[vertical];
+  const speaking = step !== "ready";
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = transcriptRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [step]);
+
+  const reset = () => {
+    setStep("ready");
+    setAutoPlaying(false);
+  };
+
+  const pick = (key: keyof typeof PRESETS) => {
+    setVertical(key);
+    reset();
+  };
+
+  const stepState = (target: CallStep) => {
+    const cur = STEP_ORDER.indexOf(step);
+    const t = STEP_ORDER.indexOf(target);
+    if (cur >= t) return "done" as const;
+    if (cur === t - 1) return "next" as const;
+    return "locked" as const;
+  };
+
+  useEffect(() => {
+    if (!autoPlaying) return;
+    if (step === "ready") {
+      const t = setTimeout(() => setStep("inquiry"), 900);
+      return () => clearTimeout(t);
+    }
+    if (step === "inquiry") {
+      const t = setTimeout(() => setStep("pivot"), 3400);
+      return () => clearTimeout(t);
+    }
+    if (step === "pivot") {
+      const t = setTimeout(() => setStep("booked"), 3600);
+      return () => clearTimeout(t);
+    }
+    setAutoPlaying(false);
+  }, [autoPlaying, step]);
+
+  const turn = (label: string, who: "agent" | "caller", text: string) => (
+    <motion.div
+      key={`${label}-${text.slice(0, 12)}`}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className={`flex flex-col ${who === "agent" ? "items-start" : "items-end"}`}
+    >
+      <span className={`${mono} mb-1 text-[10.5px] font-semibold uppercase tracking-[0.14em]`} style={{ color: INK_3 }}>
+        {label}
+      </span>
+      <div
+        className="max-w-[92%] rounded-2xl px-4 py-3 text-[13.5px] leading-relaxed"
+        style={who === "agent" ? { background: CARD, border: `1px solid ${HAIRLINE}`, color: INK } : { background: INK, color: "#fff" }}
+      >
+        {text}
+      </div>
+    </motion.div>
+  );
+
+  const stepBtn = (target: CallStep, label: string, icon: React.ReactNode) => {
+    const state = stepState(target);
+    const done = state === "done";
+    const locked = state === "locked";
+    return (
+      <button
+        onClick={() => {
+          setAutoPlaying(false);
+          setStep(target);
+        }}
+        disabled={locked}
+        className="inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0"
+        style={
+          done
+            ? { borderColor: "rgba(38,115,88,0.35)", color: GREEN, background: GREEN_SOFT }
+            : locked
+              ? { borderColor: HAIRLINE, color: INK_3, background: CARD }
+              : { borderColor: INK, color: "#fff", background: INK, boxShadow: "0 12px 26px -18px rgba(21,20,18,0.6)" }
+        }
+      >
+        {done ? <Check className="h-3.5 w-3.5" /> : icon}
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <section id="console" className="scroll-mt-20 px-5 py-20 md:px-8 md:py-28" style={{ background: BAND }}>
+      <div className="mx-auto max-w-[1120px]">
+        <Reveal>
+          <SectionHead
+            center
+            label="The live console"
+            title="Hear her answer."
+            sub="Pick a trade, then walk through a real call — including the mid-sentence interruption that trips up most phone bots."
+          />
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <div
+            className="mx-auto mt-12 max-w-[880px] overflow-hidden rounded-[24px] border"
+            style={{ borderColor: HAIRLINE_2, background: CARD, boxShadow: "0 40px 90px -50px rgba(21,20,18,0.35)" }}
+          >
+            {/* Console bar */}
+            <div className="flex flex-col gap-4 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between md:px-7" style={{ borderColor: HAIRLINE }}>
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-2.5 w-2.5 flex-none" title="Live inbound line">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-40" style={{ background: SUCCESS }} />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full" style={{ background: SUCCESS }} />
+                </span>
+                <div>
+                  <div className={`${display} text-[15px] font-semibold tracking-[-0.01em]`} style={{ color: INK }}>
+                    {preset.business}
+                  </div>
+                  <div className={`${mono} mt-0.5 text-[10.5px] uppercase tracking-[0.12em]`} style={{ color: INK_3 }}>
+                    {preset.category} · Line: live inbound · Calendar connected
+                  </div>
                 </div>
               </div>
 
-              {/* Vertical Pills */}
-              <div className="flex p-1 bg-[#F2EFE9] rounded-2xl border border-[#E0DAD0] self-start sm:self-auto">
-                {(["hvac", "plumbing", "dental"] as const).map((key) => (
+              <div className="flex gap-1 self-start rounded-full p-1 sm:self-auto" style={{ background: BAND, border: `1px solid ${HAIRLINE}` }}>
+                {(Object.keys(PRESETS) as (keyof typeof PRESETS)[]).map((key) => (
                   <button
                     key={key}
-                    onClick={() => {
-                      setActiveVertical(key);
-                      handleResetConsole();
-                    }}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                      activeVertical === key
-                        ? "bg-white text-[#141311] shadow-sm font-bold"
-                        : "text-[#7A746C] hover:text-[#141311]"
-                    }`}
+                    onClick={() => pick(key)}
+                    className="rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-all"
+                    style={
+                      vertical === key
+                        ? { background: CARD, color: INK, boxShadow: "0 1px 2px rgba(21,20,18,0.12)" }
+                        : { background: "transparent", color: INK_3 }
+                    }
+                    aria-pressed={vertical === key}
+                    title={`Switch the demo script: ${PRESETS[key].tab}`}
                   >
-                    {key}
+                    {PRESETS[key].tab}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Kinetic Audio Waveform Strip (Skiper UI inspired) */}
-            <div className="h-14 bg-[#FAF8F5] border border-[#EAE5DC] rounded-2xl px-5 flex items-center justify-between mb-6">
-              <div className="flex items-center gap-1.5 h-8 flex-1">
-                {Array.from({ length: 36 }).map((_, i) => (
-                  <motion.div
-                    key={i}
-                    animate={{
-                      height: isPlayingAudio
-                        ? `${Math.max(15, Math.sin(i * 0.45 + Date.now() / 250) * 100)}%`
-                        : "15%",
-                    }}
-                    transition={{ duration: 0.12 }}
-                    className={`w-1 rounded-full transition-colors ${
-                      isPlayingAudio ? "bg-[#1B5E3C]" : "bg-[#D5CEC4]"
-                    }`}
+            {/* Acoustic strip */}
+            <div className="flex items-center gap-4 border-b px-5 py-3 md:px-7" style={{ borderColor: HAIRLINE, background: "#FDFCFA" }}>
+              <WaveCanvas active={speaking} className="h-8 flex-1" />
+              <span className={`${mono} flex-none whitespace-nowrap text-[11px] font-semibold`} style={{ color: speaking ? SUCCESS : INK_3 }}>
+                {step === "booked" ? "Call ended · 0:34" : speaking ? "Speaking…" : "Waiting for caller…"}
+              </span>
+            </div>
+
+            {/* Transcript */}
+            <div className="relative">
+              <div ref={transcriptRef} className="max-h-[360px] space-y-4 overflow-y-auto px-5 py-6 md:px-7" style={{ background: "#FDFCFA" }}>
+              {turn("OFY · front desk · 0:01", "agent", preset.greeting)}
+              {step !== "ready" && turn(`Caller · ${preset.caller} · 0:08`, "caller", preset.inquiry)}
+              {(step === "pivot" || step === "booked") && turn("OFY · front desk · 0:14", "agent", preset.response)}
+              {(step === "pivot" || step === "booked") && turn("[ mid-sentence interruption ] · 0:18", "caller", preset.interrupt)}
+              {step === "booked" && turn("OFY · front desk · 0:21", "agent", preset.pivot)}
+              {step === "booked" && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-start">
+                  <span className={`${mono} mb-1 text-[10.5px] font-semibold uppercase tracking-[0.14em]`} style={{ color: SUCCESS }}>
+                    Calendar · write confirmed · 0:28
+                  </span>
+                  <div
+                    className="max-w-[92%] rounded-2xl px-4 py-3 text-[13.5px] font-medium leading-relaxed"
+                    style={{ background: GREEN_SOFT, border: "1px solid rgba(38,115,88,0.25)", color: GREEN }}
+                  >
+                    {preset.booked}
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    <span className={`${mono} inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold`} style={{ background: CARD, border: `1px solid ${HAIRLINE_2}`, color: INK_2 }}>
+                      <CalendarCheck className="h-3 w-3" style={{ color: GREEN }} />
+                      {preset.bookingChip}
+                    </span>
+                    <span className={`${mono} inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold`} style={{ background: CARD, border: `1px solid ${HAIRLINE_2}`, color: INK_2 }}>
+                      <Phone className="h-3 w-3" style={{ color: GREEN }} />
+                      SMS confirmation sent
+                    </span>
+                    <span className={`${mono} inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold`} style={{ background: CARD, border: `1px solid ${HAIRLINE_2}`, color: INK_2 }}>
+                      <Check className="h-3 w-3" style={{ color: GREEN }} />
+                      {preset.value}
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+              </div>
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-7" style={{ background: "linear-gradient(#FDFCFA, rgba(253,252,250,0))" }} />
+            </div>
+
+            {/* Completion strip */}
+            <AnimatePresence>
+              {step === "booked" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden border-t"
+                  style={{ borderColor: "rgba(38,115,88,0.25)", background: GREEN_SOFT }}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 md:px-7">
+                    <span className="inline-flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: GREEN }}>
+                      <Check className="h-3.5 w-3.5" />
+                      Call complete
+                    </span>
+                    <span className={`${mono} text-[11px] font-semibold`} style={{ color: SUCCESS }}>
+                      0:34 call · logged to the audit trail
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4 md:px-7" style={{ borderColor: HAIRLINE }}>
+              <div className="flex flex-wrap items-center gap-2.5">
+                {stepBtn("inquiry", "1 · Caller's problem", <Play className="h-3.5 w-3.5" />)}
+                {stepBtn("pivot", "2 · Interrupt her", <Mic className="h-3.5 w-3.5" />)}
+                {stepBtn("booked", "3 · Confirm the booking", <Check className="h-3.5 w-3.5" />)}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (autoPlaying) {
+                      setAutoPlaying(false);
+                    } else {
+                      reset();
+                      setAutoPlaying(true);
+                      setStep("inquiry");
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-[12.5px] font-semibold transition-colors hover:bg-[#F7F4EF]"
+                  style={{ background: CARD, borderColor: HAIRLINE_2, color: INK_2 }}
+                >
+                  {autoPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                  {autoPlaying ? "Pause walkthrough" : "Play the whole call"}
+                </button>
+                <button
+                  onClick={reset}
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[12.5px] font-semibold transition-colors hover:bg-[#F7F4EF]"
+                  style={{ background: BAND, border: `1px solid ${HAIRLINE}`, color: INK_2 }}
+                  aria-label="Reset the demo"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset
+                </button>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+
+        <Reveal delay={0.16}>
+          <p className="mx-auto mt-6 max-w-xl text-center text-[12.5px] leading-relaxed" style={{ color: INK_3 }}>
+            Scripted walkthrough with sample data. The same flow runs live in the studio against the local
+            stack — you can take a real test call there.
+          </p>
+        </Reveal>
+      </div>
+    </section>
+  );
+};
+
+/* Real-recording player — proof, not animation. */
+const CallPlayer: React.FC<{ src: string; title: string; sub: string }> = ({ src, title, sub }) => {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [time, setTime] = useState(0);
+  const [dur, setDur] = useState(0);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const onTime = () => setTime(a.currentTime);
+    const onMeta = () => setDur(a.duration || 0);
+    const onEnd = () => setPlaying(false);
+    a.addEventListener("timeupdate", onTime);
+    a.addEventListener("loadedmetadata", onMeta);
+    a.addEventListener("ended", onEnd);
+    return () => {
+      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("loadedmetadata", onMeta);
+      a.removeEventListener("ended", onEnd);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      const a = audioRef.current;
+      if (a) {
+        void a.play();
+        setPlaying(true);
+      }
+    };
+    window.addEventListener("ofy:play-call", handler);
+    return () => window.removeEventListener("ofy:play-call", handler);
+  }, []);
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+  const toggle = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (a.paused) {
+      void a.play();
+      setPlaying(true);
+    } else {
+      a.pause();
+      setPlaying(false);
+    }
+  };
+
+  return (
+    <div
+      id="call"
+      className="mx-auto mt-2 flex max-w-[880px] scroll-mt-28 flex-col gap-4 rounded-[20px] border px-5 py-5 sm:flex-row sm:items-center md:px-7"
+      style={{ borderColor: HAIRLINE_2, background: CARD, boxShadow: "0 24px 60px -45px rgba(21,20,18,0.3)" }}
+    >
+      <audio ref={audioRef} src={src} preload="metadata" />
+      <button
+        onClick={toggle}
+        className="inline-flex h-12 w-12 flex-none items-center justify-center rounded-full text-white transition-transform hover:scale-[1.03]"
+        style={{ background: GREEN }}
+        aria-label={playing ? "Pause sample call" : "Play sample call"}
+      >
+        {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 translate-x-[1px]" />}
+      </button>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className={`${display} text-[14.5px] font-semibold tracking-[-0.01em]`} style={{ color: INK }}>
+            {title}
+          </div>
+          <div className={`${mono} flex-none text-[11px] font-semibold`} style={{ color: INK_3 }}>
+            {fmt(time)} / {dur ? fmt(dur) : "1:25"}
+          </div>
+        </div>
+        <p className="mt-1 text-[12.5px]" style={{ color: INK_2 }}>
+          {sub}
+        </p>
+        <div className="mt-3 flex items-center gap-3">
+          <div className="relative h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: HAIRLINE }}>
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-200"
+              style={{ width: `${dur ? (time / dur) * 100 : 0}%`, background: GREEN }}
+            />
+          </div>
+          <WaveCanvas active={playing} bars={16} className="h-5 w-16 flex-none" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const HowItWorks: React.FC = () => {
+  const steps = [
+    {
+      n: "01",
+      title: "Write the brief",
+      body: "Services, hours, prices, policies — and the things the agent must never do. Plain English, or start from a kit: HVAC, plumbing, dental.",
+    },
+    {
+      n: "02",
+      title: "OFY compiles your agent",
+      body: "The brief becomes a versioned, checksummed configuration. Every change is recorded, reviewable, and reversible.",
+    },
+    {
+      n: "03",
+      title: "Test before she answers",
+      body: "Run deterministic simulations, then take a live test call in the studio. Nothing faces a customer until you promote it.",
+    },
+    {
+      n: "04",
+      title: "Go live",
+      body: "Start in the browser, add a phone number when you're ready. Bookings land in your calendar, transcripts in your log.",
+    },
+  ];
+
+  return (
+    <section id="how" className="scroll-mt-20 px-5 py-20 md:px-8 md:py-28">
+      <div className="mx-auto max-w-[1120px]">
+        <Reveal>
+          <SectionHead
+            label="How it works"
+            title="From brief to live front desk, without a dev team."
+            sub="You describe the business once. OFY turns it into an agent you can inspect, test, and trust before it ever picks up."
+          />
+        </Reveal>
+
+        <div className="mt-12 grid gap-10 md:grid-cols-4 md:gap-6">
+          {steps.map((s, i) => (
+            <Reveal key={s.n} delay={i * 0.07}>
+              <div className="flex h-full flex-col">
+                <div className={`${mono} text-[12px] font-semibold`} style={{ color: GREEN }}>
+                  {s.n}
+                </div>
+                <div className="mt-3 h-px w-full" style={{ background: HAIRLINE }} />
+                <h3 className={`${display} mt-4 text-[17px] font-semibold tracking-[-0.01em]`} style={{ color: INK }}>
+                  {s.title}
+                </h3>
+                <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: INK_2 }}>
+                  {s.body}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const AcousticTimeline: React.FC = () => {
+  const [ms, setMs] = useState(TOTAL_MS);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!playing) return;
+    const started = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const elapsed = now - started;
+      const value = Math.min(TOTAL_MS, (elapsed / 3800) * TOTAL_MS);
+      setMs(Math.round(value));
+      if (value < TOTAL_MS) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        setPlaying(false);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing]);
+
+  const found = STAGES.findIndex((s) => ms >= s.from && ms < s.to);
+  const stageIndex = found === -1 ? STAGES.length - 1 : found;
+  const pct = (ms / TOTAL_MS) * 100;
+
+  return (
+    <section id="speed" className="scroll-mt-20 px-5 py-20 md:px-8 md:py-28" style={{ background: BAND }}>
+      <div className="mx-auto max-w-[960px]">
+        <Reveal>
+          <SectionHead
+            center
+            label="Speed"
+            title="What happens in 280 milliseconds"
+            sub="Why callers never hang up: every step runs locally — no cloud round-trips, no robotic hesitation."
+          />
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <div className="mt-12 rounded-[24px] border p-6 md:p-9" style={{ borderColor: HAIRLINE_2, background: CARD }}>
+            <div className="flex items-center justify-between">
+              <span className={`${mono} text-[11px] font-semibold uppercase tracking-[0.14em]`} style={{ color: INK_3 }}>
+                Drag the timeline
+              </span>
+              <span className={`${mono} text-[13px] font-semibold`} style={{ color: GREEN }}>
+                {ms} ms
+              </span>
+            </div>
+
+            {/* Proportional track */}
+            <div className="vl-scrub-wrap relative mt-4">
+              <div className="relative h-3.5 w-full overflow-hidden rounded-full" style={{ background: "#ECE8E0" }}>
+                {STAGES.map((s) => (
+                  <div
+                    key={s.title}
+                    className="absolute top-0 h-full"
+                    style={{ left: `${(s.from / TOTAL_MS) * 100}%`, width: "2px", background: "#FBFAF8" }}
                   />
                 ))}
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${pct}%`, background: `linear-gradient(90deg, #175134, ${GREEN})` }}
+                />
               </div>
-
-              <div className="pl-4 font-mono text-xs text-right">
-                {isPlayingAudio ? (
-                  <span className="text-[#1B5E3C] font-bold">Acoustic Playout (280ms)</span>
-                ) : (
-                  <span className="text-[#8C857B]">Waiting for caller...</span>
-                )}
-              </div>
+              <div
+                className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] shadow-md"
+                style={{ left: `calc(${pct}% )`, background: "#fff", borderColor: GREEN }}
+              />
+              <input
+                type="range"
+                min={0}
+                max={TOTAL_MS}
+                value={ms}
+                onChange={(e) => {
+                  setPlaying(false);
+                  setMs(Number(e.target.value));
+                }}
+                className="absolute inset-x-0 -top-2 h-8 w-full cursor-ew-resize opacity-0"
+                aria-label="Scrub the 280 millisecond response timeline"
+              />
+            </div>
+            <div className={`${mono} mt-2 flex justify-between text-[10.5px]`} style={{ color: INK_3 }}>
+              <span>0 ms</span>
+              <span>{TOTAL_MS} ms</span>
             </div>
 
-            {/* Live Conversation Window */}
-            <div className="bg-[#FAF8F5] border border-[#EAE5DC] rounded-2xl p-6 min-h-[240px] max-h-[290px] overflow-y-auto space-y-4 text-sm font-sans">
-              {/* Turn 1: Greeting */}
-              <div className="flex flex-col items-start">
-                <span className="text-xs font-mono text-[#8C857B] uppercase mb-1 font-bold">
-                  Vaani (Front Desk) · 0:01
-                </span>
-                <div className="p-3.5 rounded-2xl bg-white border border-[#E6E2DC] text-[#141311] max-w-[90%] shadow-sm leading-relaxed">
-                  {presets[activeVertical].greeting}
-                </div>
-              </div>
-
-              {/* Turn 2: Customer Inquiry */}
-              {currentCallStep !== "ready" && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-end"
-                >
-                  <span className="text-xs font-mono text-[#8C857B] uppercase mb-1 font-bold">
-                    Caller ({presets[activeVertical].caller}) · 0:08
-                  </span>
-                  <div className="p-3.5 rounded-2xl bg-[#141311] text-white max-w-[90%] leading-relaxed font-medium">
-                    {presets[activeVertical].inquiryText}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Turn 3: Assistant Diagnostic Proposal */}
-              {(currentCallStep === "inquiry" || currentCallStep === "interrupted" || currentCallStep === "booked") && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-start"
-                >
-                  <span className="text-xs font-mono text-[#8C857B] uppercase mb-1 font-bold">
-                    Vaani (Front Desk) · 0:14
-                  </span>
-                  <div className="p-3.5 rounded-2xl bg-white border border-[#E6E2DC] text-[#141311] max-w-[90%] shadow-sm leading-relaxed">
-                    {presets[activeVertical].mayaResponse}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Turn 4: Caller Barge-in / Time Change */}
-              {(currentCallStep === "interrupted" || currentCallStep === "booked") && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-end"
-                >
-                  <span className="text-xs font-mono text-[#C2410C] uppercase mb-1 font-bold">
-                    [Mid-Sentence Interruption] · 0:18
-                  </span>
-                  <div className="p-3.5 rounded-2xl bg-[#FFF7ED] text-[#9A3412] border border-[#FED7AA] max-w-[90%] leading-relaxed font-medium">
-                    {presets[activeVertical].interruptedText}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Turn 5: Assistant Seamless Pivot */}
-              {(currentCallStep === "interrupted" || currentCallStep === "booked") && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-start"
-                >
-                  <span className="text-xs font-mono text-[#8C857B] uppercase mb-1 font-bold">
-                    Vaani (Front Desk) · 0:21
-                  </span>
-                  <div className="p-3.5 rounded-2xl bg-white border border-[#E6E2DC] text-[#141311] max-w-[90%] shadow-sm leading-relaxed">
-                    {presets[activeVertical].mayaPivot}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Turn 6: Booked Confirmation */}
-              {currentCallStep === "booked" && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-start"
-                >
-                  <span className="text-xs font-mono text-[#1B5E3C] uppercase mb-1 font-bold">
-                    Calendar Confirmed (DB Write Locked) · 0:28
-                  </span>
-                  <div className="p-3.5 rounded-2xl bg-[#E7F0EB] text-[#1B5E3C] border border-[#227A4F]/30 max-w-[90%] leading-relaxed font-semibold">
-                    {presets[activeVertical].bookedText}
-                  </div>
-                </motion.div>
-              )}
+            {/* Stage cards */}
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {STAGES.map((s, i) => {
+                const on = ms > s.from || i === 0;
+                const isCurrent = i === stageIndex;
+                return (
+                  <button
+                    key={s.title}
+                    onClick={() => {
+                      setPlaying(false);
+                      setMs(s.to - 1);
+                    }}
+                    className="rounded-2xl border p-4 text-left transition-all"
+                    style={{
+                      borderColor: isCurrent ? "rgba(38,115,88,0.5)" : HAIRLINE,
+                      background: isCurrent ? GREEN_SOFT : on ? "#F7F5F1" : "#FBF9F6",
+                      opacity: on ? 1 : 0.6,
+                      boxShadow: isCurrent ? "0 14px 34px -26px rgba(21,20,18,0.45)" : "none",
+                    }}
+                  >
+                    <div className={`${mono} text-[11px] font-semibold`} style={{ color: GREEN }}>
+                      {s.from} – {s.to} ms
+                    </div>
+                    <div className={`${display} mt-1.5 text-[14px] font-semibold`} style={{ color: INK }}>
+                      {s.title}
+                    </div>
+                    <p className="mt-1.5 text-[12px] leading-relaxed" style={{ color: INK_2 }}>
+                      {s.desc}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Interactive Tactile Trigger Buttons */}
-            <div className="mt-6 pt-5 border-t border-[#EAE5DC] flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={handleRunInquiry}
-                  disabled={currentCallStep !== "ready"}
-                  style={{ color: "#ffffff", backgroundColor: "#141311" }}
-                  className="px-4 py-2.5 rounded-full hover:bg-[#2C2A26] font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 shadow-sm"
-                >
-                  <Play className="w-4 h-4 text-emerald-400" /> 1. Customer Problem
-                </button>
-
-                <button
-                  onClick={handleRunInterrupt}
-                  disabled={currentCallStep !== "inquiry"}
-                  style={{ color: "#9A3412", backgroundColor: "#FFF7ED" }}
-                  className="px-4 py-2.5 rounded-full hover:bg-[#FFEDD5] font-semibold text-sm border border-[#FED7AA] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40"
-                >
-                  <Sparkles className="w-4 h-4 text-[#C2410C]" /> 2. Interrupt Assistant
-                </button>
-
-                <button
-                  onClick={handleRunCommit}
-                  disabled={currentCallStep !== "interrupted"}
-                  style={{ color: "#1B5E3C", backgroundColor: "#E7F0EB" }}
-                  className="px-4 py-2.5 rounded-full hover:bg-[#D4E8DC] font-semibold text-sm border border-[#1B5E3C]/30 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40"
-                >
-                  <Check className="w-4 h-4 text-[#1B5E3C]" /> 3. Lock Appointment
-                </button>
-              </div>
-
+            <div className="mt-7 flex justify-center">
               <button
-                onClick={handleResetConsole}
-                className="p-2.5 rounded-full bg-[#F2EFE9] hover:bg-[#E6E2DC] text-[#7A746C] transition-all cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                title="Reset Console"
+                onClick={() => {
+                  setMs(0);
+                  setPlaying(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-[13px] font-semibold transition-colors hover:bg-[#F7F4EF]"
+                style={{ borderColor: HAIRLINE_2, color: INK, background: CARD }}
               >
-                <RotateCcw className="w-4 h-4" /> Reset
+                <Play className="h-3.5 w-3.5" style={{ color: GREEN }} />
+                Play the 280 ms
               </button>
             </div>
           </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+};
 
-          {/* Dedicated Studio Banner */}
-          <div className="mt-5 p-5 rounded-2xl bg-white border border-[#E0DAD0] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-full bg-[#E7F0EB] text-[#1B5E3C] flex items-center justify-center font-bold flex-shrink-0">
-                <Phone className="w-5 h-5 text-[#1B5E3C]" />
+const Guardrails: React.FC = () => {
+  const cards = [
+    {
+      icon: Tag,
+      title: "No invented pricing",
+      body: "She quotes your set fees — never guesses a repair total over the phone. Off-list requests get a callback, not a made-up number.",
+    },
+    {
+      icon: Clock,
+      title: "Your hours, enforced",
+      body: "A Sunday-midnight call gets Monday priority or your emergency rate — whichever you've set. She cannot talk her way around it.",
+    },
+    {
+      icon: AlertTriangle,
+      title: "Hazard escalation",
+      body: "Gas smell, sparking breaker, burst pipe: she skips scheduling entirely and transfers to your on-call technician, immediately.",
+    },
+  ];
+
+  return (
+    <section id="guardrails" className="scroll-mt-20 px-5 py-20 md:px-8 md:py-28">
+      <div className="mx-auto max-w-[1120px]">
+        <Reveal>
+          <SectionHead
+            center
+            label="Guardrails"
+            title="Your business. Your rules."
+            sub="The real fear with AI on the phones is that it says something wrong. OFY takes hard rules that cannot be talked around."
+          />
+        </Reveal>
+
+        <div className="mt-12 grid gap-5 md:grid-cols-3">
+          {cards.map((c, i) => (
+            <Reveal key={c.title} delay={i * 0.07}>
+              <div className="h-full rounded-[20px] border p-6" style={{ borderColor: HAIRLINE, background: "#FDFCFA" }}>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: GREEN_SOFT }}>
+                  <c.icon style={{ color: GREEN, width: 18, height: 18 }} />
+                </div>
+                <h3 className={`${display} mt-4 text-[16.5px] font-semibold tracking-[-0.01em]`} style={{ color: INK }}>
+                  {c.title}
+                </h3>
+                <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: INK_2 }}>
+                  {c.body}
+                </p>
               </div>
-              <div>
-                <div className="font-bold text-sm sm:text-base text-[#141311]">Want to test Maya live with your own microphone?</div>
-                <div className="text-xs sm:text-sm text-[#5E5850]">Experience real-time voice recognition, instant barge-in interruptions, and multi-turn scheduling.</div>
-              </div>
-            </div>
-            <button
-              onClick={onLaunchStudio}
-              style={{ color: "#ffffff", backgroundColor: "#1B5E3C" }}
-              className="px-6 py-3 rounded-full hover:bg-[#154b30] font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-[#1B5E3C]/20 flex-shrink-0"
+            </Reveal>
+          ))}
+        </div>
+
+        <Reveal delay={0.2}>
+          <p className="mx-auto mt-8 max-w-xl text-center text-[12.5px] leading-relaxed" style={{ color: INK_3 }}>
+            “Maya” is a sample OFY agent. You write the rules — and the studio shows exactly where each one
+            is enforced in every conversation.
+          </p>
+        </Reveal>
+      </div>
+    </section>
+  );
+};
+
+const Privacy: React.FC = () => (
+  <section id="privacy" className="scroll-mt-20 px-5 py-20 md:px-8 md:py-28" style={{ background: INK }}>
+    <div className="mx-auto max-w-[1120px]">
+      <div className="grid items-center gap-12 md:grid-cols-2">
+        <Reveal>
+          <div>
+            <Eyebrow tone="dark">Private by design</Eyebrow>
+            <h2
+              className={`${display} mt-3 text-[clamp(27px,3.3vw,38px)] leading-[1.1] tracking-[-0.02em]`}
+              style={{ color: "#F7F5F1", fontWeight: 560, ...displayStyle }}
             >
-              Launch Interactive Studio <ArrowRight className="w-4 h-4 text-white" />
-            </button>
-          </div>
-        </div>
-      </section>
+              Calls that stay in the building.
+            </h2>
+            <p className="mt-4 max-w-md text-[15px] leading-relaxed" style={{ color: "#BDB9B1" }}>
+              Most voice agents ship every call through a stack of third-party APIs. OFY runs speech,
+              language, and voice on your own machine.
+            </p>
 
-      {/* 2. THE DISPATCH LEDGER (Proof of Captured Revenue) */}
-      <section id="ledger" className="py-24 px-6 md:px-12 border-b border-[#E6E2DC] bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
-            <div>
-              <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-[-0.025em] text-[#141311]">
-                The Live Dispatch Ledger
-              </h2>
-              <p className="text-[#5E5850] text-sm mt-2 max-w-xl">
-                Real jobs captured by Vaani while business owners were on a roof, under a sink, or asleep at night.
-              </p>
-            </div>
-            <div className="font-mono text-xs text-[#1B5E3C] bg-[#E7F0EB] border border-[#227A4F]/20 px-3.5 py-1.5 rounded-full font-bold self-start md:self-auto">
-              4 Captured Today · $3,250 Added
+            <ul className="mt-7 space-y-3.5">
+              {[
+                "No third-party model calls in the default setup",
+                "Network egress off by default — it fails closed",
+                "Transcripts, recordings, and bookings live on your hardware",
+                "Cloud and telephony integrations are optional, scoped, and audited",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full" style={{ background: "rgba(157,191,173,0.18)" }}>
+                    <Check className="h-3 w-3" style={{ color: "#9DBFAD" }} />
+                  </span>
+                  <span className="text-[13.5px] leading-relaxed" style={{ color: "#DAD6CE" }}>
+                    {item}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-7 flex flex-wrap gap-2">
+              {["speech · local", "language · local", "voice · local"].map((chip) => (
+                <span
+                  key={chip}
+                  className={`${mono} rounded-full border px-3 py-1 text-[10.5px] font-semibold uppercase tracking-[0.1em]`}
+                  style={{ borderColor: "rgba(247,245,241,0.16)", color: "#C9C5BD" }}
+                >
+                  {chip}
+                </span>
+              ))}
             </div>
           </div>
+        </Reveal>
 
-          <div className="divide-y divide-[#EAE5DC] border-y border-[#EAE5DC]">
-            {ledgerItems.map((item, index) => {
-              const isExpanded = expandedLedger === index;
-              return (
-                <div key={index} className="py-4 hover:bg-[#FAF8F5] transition-colors rounded-xl px-4">
+        <Reveal delay={0.1}>
+          <div className="rounded-[24px] border p-6 md:p-8" style={{ borderColor: "rgba(247,245,241,0.14)", background: "rgba(247,245,241,0.045)" }}>
+            <div className="space-y-3">
+              {[
+                { icon: Phone, label: "Caller", detail: "Browser or phone line" },
+                { icon: Server, label: "Your machine", detail: "Speech → language → voice, all local", accent: true },
+                { icon: CalendarCheck, label: "Your calendar & log", detail: "Bookings, transcripts, recordings" },
+              ].map((row, i) => (
+                <React.Fragment key={row.label}>
                   <div
-                    onClick={() => setExpandedLedger(isExpanded ? null : index)}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer"
+                    className="flex items-center gap-4 rounded-2xl border px-4 py-3.5"
+                    style={
+                      row.accent
+                        ? { borderColor: "rgba(157,191,173,0.55)", background: "rgba(157,191,173,0.13)", boxShadow: "0 0 0 4px rgba(157,191,173,0.06)" }
+                        : { borderColor: "rgba(247,245,241,0.14)", background: "rgba(247,245,241,0.035)" }
+                    }
                   >
-                    <div className="flex items-center gap-4">
-                      <span className="font-mono text-xs text-[#8C857B] min-w-[70px]">
-                        {item.time}
-                      </span>
-                      <span className="px-2.5 py-1 rounded-md bg-[#F2EFE9] text-[#5E5850] font-mono text-[11px] font-semibold uppercase">
-                        {item.category}
-                      </span>
-                      <span className="font-bold text-sm text-[#141311]">
-                        {item.caller}
-                      </span>
-                      <span className="text-xs text-[#5E5850] hidden md:inline truncate max-w-xs">
-                        {item.problem}
-                      </span>
+                    <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl" style={{ background: "rgba(247,245,241,0.09)" }}>
+                      <row.icon className="h-4 w-4" style={{ color: row.accent ? "#9DBFAD" : "#DAD6CE" }} />
+                    </span>
+                    <div>
+                      <div className="text-[13.5px] font-semibold" style={{ color: "#F7F5F1" }}>
+                        {row.label}
+                      </div>
+                      <div className="text-[12px]" style={{ color: "#BDB9B1" }}>
+                        {row.detail}
+                      </div>
                     </div>
-
-                    <div className="flex items-center gap-6 self-end sm:self-auto">
-                      <span className="font-mono font-bold text-sm text-[#1B5E3C]">
-                        {item.value}
-                      </span>
-                      <button className="text-[#8C857B] hover:text-[#141311]">
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="pt-4 pb-2 pl-4 sm:pl-[86px] text-xs text-[#5E5850] space-y-1.5"
+                    {row.accent && (
+                      <span
+                        className={`${mono} ml-auto hidden rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] sm:inline-flex`}
+                        style={{ background: "rgba(157,191,173,0.18)", color: "#9DBFAD" }}
                       >
-                        <div>
-                          <strong className="text-[#141311]">Customer Issue:</strong> {item.problem}
-                        </div>
-                        <div>
-                          <strong className="text-[#141311]">Action Taken:</strong> {item.resolution}
-                        </div>
-                        <div className="pt-2 text-[11px] text-[#1B5E3C] font-mono font-semibold">
-                          ✓ Calendar event locked & text confirmation delivered in 42 seconds
-                        </div>
-                      </motion.div>
+                        local
+                      </span>
                     )}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* 3. THE 300MS ACOUSTIC ANATOMY (Interactive Scrubber) */}
-      <section id="anatomy" className="py-24 px-6 md:px-12 border-b border-[#E6E2DC] bg-[#F6F4F0]">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-[-0.025em] text-[#141311]">
-              What Happens in 280 Milliseconds
-            </h2>
-            <p className="text-[#5E5850] text-sm mt-2 max-w-lg mx-auto">
-              Why callers never hang up: speech is processed locally in memory. Zero cloud lag, zero robotic hesitation.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-[#DCD6CC] p-8 md:p-10 shadow-sm">
-            {/* Scrubber slider */}
-            <div className="mb-8">
-              <div className="flex justify-between items-center text-xs font-mono mb-2">
-                <span className="text-[#8C857B]">DRAG TIMELINE SCRUBBER</span>
-                <span className="text-[#1B5E3C] font-bold text-sm">{scrubberMs}ms</span>
-              </div>
-              <input
-                type="range"
-                min="30"
-                max="280"
-                value={scrubberMs}
-                onChange={(e) => setScrubberMs(Number(e.target.value))}
-                className="w-full accent-[#1B5E3C] h-2 bg-[#F2EFE9] rounded-lg cursor-pointer"
-              />
-            </div>
-
-            {/* 4 Pipeline Stages */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className={`p-4 rounded-2xl border transition-all ${scrubberMs >= 40 ? "bg-[#E7F0EB] border-[#227A4F]/30" : "bg-[#FAF8F5] border-[#EAE5DC] opacity-40"}`}>
-                <div className="font-mono text-xs font-bold text-[#1B5E3C]">0 – 40ms</div>
-                <div className="font-bold text-xs text-[#141311] mt-1">Acoustic Detection</div>
-                <p className="text-[11px] text-[#5E5850] mt-1">Filters background engines, saws, and traffic noise.</p>
-              </div>
-
-              <div className={`p-4 rounded-2xl border transition-all ${scrubberMs >= 110 ? "bg-[#E7F0EB] border-[#227A4F]/30" : "bg-[#FAF8F5] border-[#EAE5DC] opacity-40"}`}>
-                <div className="font-mono text-xs font-bold text-[#1B5E3C]">40 – 110ms</div>
-                <div className="font-bold text-xs text-[#141311] mt-1">Intent Recognition</div>
-                <p className="text-[11px] text-[#5E5850] mt-1">Extracts problem severity, address, and desired service.</p>
-              </div>
-
-              <div className={`p-4 rounded-2xl border transition-all ${scrubberMs >= 200 ? "bg-[#E7F0EB] border-[#227A4F]/30" : "bg-[#FAF8F5] border-[#EAE5DC] opacity-40"}`}>
-                <div className="font-mono text-xs font-bold text-[#1B5E3C]">110 – 200ms</div>
-                <div className="font-bold text-xs text-[#141311] mt-1">Schedule & Policy Lock</div>
-                <p className="text-[11px] text-[#5E5850] mt-1">Checks operating calendar and clamps diagnostic fees.</p>
-              </div>
-
-              <div className={`p-4 rounded-2xl border transition-all ${scrubberMs >= 280 ? "bg-[#E7F0EB] border-[#227A4F]/30" : "bg-[#FAF8F5] border-[#EAE5DC] opacity-40"}`}>
-                <div className="font-mono text-xs font-bold text-[#1B5E3C]">200 – 280ms</div>
-                <div className="font-bold text-xs text-[#141311] mt-1">Warm Voice Playout</div>
-                <p className="text-[11px] text-[#5E5850] mt-1">First audio packet plays. Caller hears immediate, natural reply.</p>
+                  </div>
+                  {i < 2 && (
+                    <div className="flex justify-center">
+                      <ChevronDown className="h-4 w-4" style={{ color: "rgba(247,245,241,0.38)" }} />
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+              <div className="flex items-center justify-center gap-2.5 pt-3">
+                <CloudOff className="h-4 w-4" style={{ color: "#9DBFAD" }} />
+                <span className="text-[12px] font-semibold" style={{ color: "#C9C5BD" }}>
+                  Third-party model clouds — not in the path
+                </span>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </Reveal>
+      </div>
+    </div>
+  </section>
+);
 
-      {/* 4. THE NEVER-DO GUARDRAIL VAULT */}
-      <section className="py-24 px-6 md:px-12 border-b border-[#E6E2DC] bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-[-0.025em] text-[#141311]">
-              Your Business. Your Rules.
-            </h2>
-            <p className="text-[#5E5850] text-sm mt-2">
-              Business owners fear AI saying the wrong thing. Vaani has hard-coded guardrails that cannot be bypassed.
-            </p>
-          </div>
+const Ledger: React.FC = () => {
+  const [expanded, setExpanded] = useState<number | null>(0);
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-3xl bg-[#FAF8F5] border border-[#EAE5DC]">
-              <div className="w-9 h-9 rounded-xl bg-[#E7F0EB] text-[#1B5E3C] flex items-center justify-center font-bold text-sm mb-4">
-                ✓
-              </div>
-              <h3 className="font-bold text-sm text-[#141311] mb-1.5">No Made-Up Pricing</h3>
-              <p className="text-xs text-[#5E5850] leading-relaxed">
-                Maya will quote your standard diagnostic fee ($79, $89), but is strictly forbidden from guessing total repair or installation costs over the phone without in-person inspection.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-3xl bg-[#FAF8F5] border border-[#EAE5DC]">
-              <div className="w-9 h-9 rounded-xl bg-[#E7F0EB] text-[#1B5E3C] flex items-center justify-center font-bold text-sm mb-4">
-                ✓
-              </div>
-              <h3 className="font-bold text-sm text-[#141311] mb-1.5">No Off-Hours Booking</h3>
-              <p className="text-xs text-[#5E5850] leading-relaxed">
-                She respects your operating schedule. If a caller asks for Sunday midnight, she offers Monday morning priority or quotes your emergency weekend surcharge.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-3xl bg-[#FAF8F5] border border-[#EAE5DC]">
-              <div className="w-9 h-9 rounded-xl bg-[#E7F0EB] text-[#1B5E3C] flex items-center justify-center font-bold text-sm mb-4">
-                ✓
-              </div>
-              <h3 className="font-bold text-sm text-[#141311] mb-1.5">Instant Hazard Escalation</h3>
-              <p className="text-xs text-[#5E5850] leading-relaxed">
-                Critical hazards like gas leaks, sparking breakers, or structural water bursts skip standard scheduling and trigger an immediate emergency transfer to the on-call technician.
-              </p>
+  return (
+    <section id="ledger" className="scroll-mt-20 px-5 py-20 md:px-8 md:py-28">
+      <div className="mx-auto max-w-[1120px]">
+        <Reveal>
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <SectionHead
+              label="Sample day"
+              title="The jobs you didn't miss."
+              sub="What one day looks like when every call gets answered. Illustration — sample data."
+            />
+            <div
+              className={`${mono} self-start rounded-full border px-3.5 py-1.5 text-[11px] font-semibold md:self-auto`}
+              style={{ borderColor: HAIRLINE_2, color: GREEN, background: GREEN_SOFT }}
+            >
+              4 calls captured · $3,250 added
             </div>
           </div>
-        </div>
-      </section>
+        </Reveal>
 
-      {/* 5. REVENUE RECOVERY CALCULATOR */}
-      <section className="py-24 px-6 md:px-12 border-b border-[#E6E2DC] bg-[#F6F4F0]">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-[-0.025em] text-[#141311]">
-              The Revenue You Lose to Voicemail
-            </h2>
-            <p className="text-[#5E5850] text-sm mt-2">
-              Every unanswered call is a customer with an active credit card dialing the next company down the street.
-            </p>
+        <Reveal delay={0.1}>
+          <div className="mt-10 overflow-hidden rounded-[20px] border" style={{ borderColor: HAIRLINE, background: CARD }}>
+            <div className="hidden grid-cols-[130px_110px_1fr_110px] gap-4 border-b px-6 py-3 md:grid" style={{ borderColor: HAIRLINE, background: "#FDFCFA" }}>
+              {["Time", "Trade", "Call", "Value"].map((h) => (
+                <span key={h} className={`${mono} text-[10.5px] font-semibold uppercase tracking-[0.14em]`} style={{ color: INK_2 }}>
+                  {h}
+                </span>
+              ))}
+            </div>
+
+            <div>
+              {LEDGER_ROWS.map((row, i) => {
+                const isOpen = expanded === i;
+                return (
+                  <div key={row.time} className="border-b last:border-b-0" style={{ borderColor: HAIRLINE }}>
+                    <button
+                      onClick={() => setExpanded(isOpen ? null : i)}
+                      className="grid w-full grid-cols-1 items-center gap-2 px-6 py-4 text-left transition-colors hover:bg-[#FDFCFA] md:grid-cols-[130px_110px_1fr_110px] md:gap-4"
+                      aria-expanded={isOpen}
+                    >
+                      <span className={`${mono} text-[12px]`} style={{ color: INK_3 }}>
+                        {row.time}
+                      </span>
+                      <span className="inline-flex w-fit rounded-md px-2 py-0.5 text-[11px] font-semibold" style={{ background: BAND, color: INK_2 }}>
+                        {row.trade}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13.5px] font-semibold" style={{ color: INK }}>
+                          {row.caller} — {row.problem}
+                        </span>
+                      </span>
+                      <span className="flex items-center justify-between gap-3 md:justify-end">
+                        <span className={`${mono} text-[13px] font-semibold`} style={{ color: GREEN }}>
+                          {row.value}
+                        </span>
+                        <ChevronDown className={`h-4 w-4 flex-none transition-transform ${isOpen ? "rotate-180" : ""}`} style={{ color: INK_3 }} />
+                      </span>
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <div className="border-l-2 px-6 pb-5 md:pl-[152px]" style={{ borderColor: GREEN, background: "#FDFCFA" }}>
+                            <p className="pt-1 text-[13px]" style={{ color: INK_2 }}>
+                              <span className="font-semibold" style={{ color: INK }}>
+                                What happened:{" "}
+                              </span>
+                              {row.resolution}
+                            </p>
+                            <p className={`${mono} pt-2 text-[11.5px] font-semibold`} style={{ color: SUCCESS }}>
+                              ✓ Calendar event written · text confirmation delivered in 42 seconds
+                            </p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+};
 
-          <div className="bg-white rounded-3xl border border-[#DCD6CC] p-8 md:p-12 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
-            <div className="md:col-span-7 space-y-7">
+const Calculator: React.FC<{ onLaunchStudio: () => void }> = ({ onLaunchStudio }) => {
+  const [missed, setMissed] = useState(16);
+  const [ticket, setTicket] = useState(850);
+
+  const RECOVERY = 0.35; // share of missed callers who book when someone answers instantly
+  const monthly = (missed * 4.33 * RECOVERY * ticket) / 1000;
+  const annual = monthly * 12;
+  const round = (n: number) => Math.round(n) * 1000;
+
+  return (
+    <section className="px-5 py-20 md:px-8 md:py-28" style={{ background: BAND }}>
+      <div className="mx-auto max-w-[960px]">
+        <Reveal>
+          <SectionHead
+            center
+            label="The math"
+            title="What voicemail costs you"
+            sub="Every missed call is a customer with a card out, dialing the next shop down the road."
+          />
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <div className="mt-12 grid gap-8 rounded-[24px] border p-6 md:grid-cols-12 md:p-10" style={{ borderColor: HAIRLINE_2, background: CARD }}>
+            <div className="space-y-8 md:col-span-7">
               <div>
-                <div className="flex justify-between items-center text-sm font-bold text-[#141311] mb-2">
-                  <span>Missed Calls Each Week</span>
-                  <span className="font-mono text-[#1B5E3C] text-base font-bold">{weeklyMissed} calls</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13.5px] font-semibold" style={{ color: INK }}>
+                    Missed calls each week
+                  </span>
+                  <span className={`${mono} text-[15px] font-semibold`} style={{ color: GREEN }}>
+                    {missed}
+                  </span>
                 </div>
                 <input
                   type="range"
-                  min="4"
-                  max="50"
-                  value={weeklyMissed}
-                  onChange={(e) => setWeeklyMissed(Number(e.target.value))}
-                  className="w-full accent-[#1B5E3C] h-2 bg-[#F2EFE9] rounded-lg cursor-pointer"
+                  min={4}
+                  max={50}
+                  value={missed}
+                  onChange={(e) => setMissed(Number(e.target.value))}
+                  className="vl-range mt-3 w-full"
+                  aria-label="Missed calls each week"
                 />
-                <div className="flex justify-between text-[11px] font-mono text-[#8C857B] mt-1">
-                  <span>4 calls</span>
-                  <span>50 calls</span>
+                <div className={`${mono} mt-1.5 flex justify-between text-[10.5px]`} style={{ color: INK_3 }}>
+                  <span>4</span>
+                  <span>50</span>
                 </div>
               </div>
 
               <div>
-                <div className="flex justify-between items-center text-sm font-bold text-[#141311] mb-2">
-                  <span>Average Ticket / Service Revenue</span>
-                  <span className="font-mono text-[#1B5E3C] text-base font-bold">${avgTicket}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13.5px] font-semibold" style={{ color: INK }}>
+                    Average ticket
+                  </span>
+                  <span className={`${mono} text-[15px] font-semibold`} style={{ color: GREEN }}>
+                    ${ticket.toLocaleString()}
+                  </span>
                 </div>
                 <input
                   type="range"
-                  min="200"
-                  max="2500"
-                  step="50"
-                  value={avgTicket}
-                  onChange={(e) => setAvgTicket(Number(e.target.value))}
-                  className="w-full accent-[#1B5E3C] h-2 bg-[#F2EFE9] rounded-lg cursor-pointer"
+                  min={200}
+                  max={2500}
+                  step={50}
+                  value={ticket}
+                  onChange={(e) => setTicket(Number(e.target.value))}
+                  className="vl-range mt-3 w-full"
+                  aria-label="Average ticket"
                 />
-                <div className="flex justify-between text-[11px] font-mono text-[#8C857B] mt-1">
+                <div className={`${mono} mt-1.5 flex justify-between text-[10.5px]`} style={{ color: INK_3 }}>
                   <span>$200</span>
                   <span>$2,500</span>
                 </div>
               </div>
+
+              <p className="text-[12px] leading-relaxed" style={{ color: INK_3 }}>
+                Estimate assumes 35% of missed callers book when someone answers instantly — the rest have
+                already called the next company. {missed} × 52 wks × ${ticket} × 35%.
+              </p>
             </div>
 
-            <div className="md:col-span-5 text-center p-8 rounded-2xl bg-[#FAF8F5] border border-[#EAE5DC]">
-              <div className="text-xs uppercase font-mono text-[#8C857B] font-bold tracking-wider mb-1">
-                Recoverable Annual Jobs
+            <div className="md:col-span-5">
+              <div className="flex h-full flex-col justify-center rounded-2xl border p-7 text-center" style={{ borderColor: HAIRLINE, background: "#FBF9F6" }}>
+                <div className={`${mono} text-[10.5px] font-semibold uppercase tracking-[0.16em]`} style={{ color: INK_3 }}>
+                  Recovered revenue · per year
+                </div>
+                <div className={`${display} mt-2 text-[clamp(34px,4.4vw,46px)] font-semibold tracking-[-0.02em]`} style={{ color: GREEN, ...displayStyle }}>
+                  ${round(annual).toLocaleString()}
+                </div>
+                <div className="mt-1 text-[12px]" style={{ color: INK_2 }}>
+                  ≈ ${round(monthly).toLocaleString()} per month
+                </div>
+                <button
+                  onClick={onLaunchStudio}
+                  className="mt-7 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3.5 text-[13.5px] font-semibold text-white transition-transform hover:-translate-y-[1px]"
+                  style={{ background: INK }}
+                >
+                  Put OFY on the line
+                  <ArrowRight className="h-4 w-4" />
+                </button>
               </div>
-              <div className="font-display text-4xl sm:text-5xl font-extrabold text-[#1B5E3C] tracking-tight my-2">
-                ${annualRecoverable.toLocaleString()}
-              </div>
-              <div className="text-xs text-[#5E5850]">
-                ${monthlyRecoverable.toLocaleString()} per month in preserved revenue
-              </div>
-
-              <button
-                onClick={onLaunchStudio}
-                style={{ color: "#ffffff", backgroundColor: "#1B5E3C" }}
-                className="mt-6 w-full py-3.5 rounded-full hover:bg-[#164D31] font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#1B5E3C]/20"
-              >
-                Set Up Your Front Desk <ArrowRight className="w-4 h-4 text-white" />
-              </button>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* 6. PHYSICAL CLOSING DOCK & CTA */}
-      <section className="py-28 px-6 md:px-12 bg-white text-center border-b border-[#E6E2DC]">
-        <div className="max-w-2xl mx-auto">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-[-0.03em] text-[#141311]">
-            Stop Losing Jobs to Empty Rings.
-          </h2>
-          <p className="mt-5 text-base text-[#5E5850] leading-relaxed">
-            Give your business a front desk that answers on ring one, books jobs with calendar precision, and never takes a day off.
-          </p>
-
-          <div className="mt-8 flex justify-center">
-            <button
-              onClick={onLaunchStudio}
-              style={{ color: "#ffffff", backgroundColor: "#141311" }}
-              className="px-8 py-4 rounded-full hover:bg-[#2C2A26] font-semibold text-base tracking-normal transition-all shadow-lg flex items-center gap-2 cursor-pointer"
-            >
-              Open Configurator Studio <ArrowRight className="w-4 h-4 text-white" />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Minimal Clean Footer */}
-      <footer className="py-8 px-6 md:px-12 bg-[#F6F4F0] text-xs text-[#7A746C]">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-5 h-5 rounded-full bg-[#1B5E3C] text-white flex items-center justify-center font-bold text-[10px]">
-              V
-            </div>
-            <span className="font-bold text-[#141311]">VAANI</span>
-            <span>— Autonomous 24/7 Inbound Dispatch for Local Business</span>
-          </div>
-          <div className="font-mono text-[11px]">
-            Zero-Egress Private Architecture · Calendar Connected
-          </div>
-        </div>
-      </footer>
-    </div>
+        </Reveal>
+      </div>
+    </section>
   );
 };
+
+const Faq: React.FC = () => {
+  const [open, setOpen] = useState<number | null>(0);
+  return (
+    <section id="faq" className="scroll-mt-20 px-5 py-20 md:px-8 md:py-28">
+      <div className="mx-auto max-w-[760px]">
+        <Reveal>
+          <SectionHead center label="FAQ" title="Questions, answered." />
+        </Reveal>
+        <div className="mt-10">
+          {FAQS.map((f, i) => {
+            const isOpen = open === i;
+            return (
+              <div key={f.q} className="border-b" style={{ borderColor: HAIRLINE }}>
+                <button
+                  onClick={() => setOpen(isOpen ? null : i)}
+                  className="flex w-full items-center justify-between gap-6 py-5 text-left"
+                  aria-expanded={isOpen}
+                >
+                  <span className={`${display} text-[15.5px] font-semibold tracking-[-0.01em]`} style={{ color: INK }}>
+                    {f.q}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 flex-none transition-transform ${isOpen ? "rotate-180" : ""}`} style={{ color: INK_3 }} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <p className="pb-5 pr-10 text-[13.5px] leading-relaxed" style={{ color: INK_2 }}>
+                        {f.a}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const ClosingCTA: React.FC<{ onLaunchStudio: () => void }> = ({ onLaunchStudio }) => (
+  <section className="relative overflow-hidden px-5 py-24 md:px-8 md:py-32" style={{ background: BAND }}>
+    <RingField className="pointer-events-none absolute left-1/2 top-1/2 h-[760px] w-[760px] -translate-x-1/2 -translate-y-1/2" strength={0.8} />
+    <div className="relative mx-auto max-w-[760px] text-center">
+      <Reveal>
+        <h2
+          className={`${display} text-[clamp(32px,4.6vw,52px)] leading-[1.06] tracking-[-0.024em]`}
+          style={{ color: INK, fontWeight: 600, ...displayStyle }}
+        >
+          Stop losing jobs to empty rings.
+        </h2>
+      </Reveal>
+      <Reveal delay={0.08}>
+        <p className="mx-auto mt-5 max-w-lg text-[15.5px] leading-relaxed" style={{ color: INK_2 }}>
+          Put OFY on your front desk — try the full studio, or set it up with us and go live on your own
+          machine this week.
+        </p>
+      </Reveal>
+      <Reveal delay={0.14}>
+        <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <button
+            onClick={onLaunchStudio}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-4 text-[14.5px] font-semibold text-white transition-transform hover:-translate-y-[1px] sm:w-auto"
+            style={{ background: INK, boxShadow: "0 22px 50px -24px rgba(21,20,18,0.55)" }}
+          >
+            Open the studio
+            <ArrowRight className="h-4 w-4" />
+          </button>
+          <a
+            href="#console"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border px-7 py-4 text-[14.5px] font-semibold sm:w-auto"
+            style={{ borderColor: HAIRLINE_2, color: INK, background: "rgba(255,255,255,0.65)" }}
+          >
+            Replay the demo
+          </a>
+        </div>
+        <p className="mt-5 text-[12.5px]" style={{ color: INK_3 }}>
+          Local-first · self-hosted · your data stays yours
+        </p>
+      </Reveal>
+    </div>
+  </section>
+);
+
+const Footer: React.FC<{ onLaunchStudio: () => void }> = ({ onLaunchStudio }) => (
+  <footer className="border-t px-5 py-12 md:px-8" style={{ borderColor: HAIRLINE, background: CANVAS }}>
+    <div className="mx-auto max-w-[1120px]">
+      <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
+        <div>
+          <div className="flex items-center gap-3">
+            <Mark size={28} />
+            <span className={`${display} text-[16px] font-semibold tracking-[-0.01em]`} style={{ color: INK }}>
+              OFY
+            </span>
+          </div>
+          <p className="mt-3 max-w-[240px] text-[12.5px] leading-relaxed" style={{ color: INK_2 }}>
+            Autonomous inbound dispatch for local service businesses. Answers on ring one, books the job,
+            keeps your data at home.
+          </p>
+        </div>
+
+        <div>
+          <div className={`${mono} text-[10.5px] font-semibold uppercase tracking-[0.16em]`} style={{ color: INK_3 }}>
+            Product
+          </div>
+          <ul className="mt-3 space-y-2 text-[13px]">
+            {[
+              { label: "How it works", href: "#how" },
+              { label: "Live demo", href: "#console" },
+              { label: "Guardrails", href: "#guardrails" },
+              { label: "FAQ", href: "#faq" },
+            ].map((l) => (
+              <li key={l.href}>
+                <a href={l.href} style={{ color: INK_2 }}>
+                  {l.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <div className={`${mono} text-[10.5px] font-semibold uppercase tracking-[0.16em]`} style={{ color: INK_3 }}>
+            Studio
+          </div>
+          <ul className="mt-3 space-y-2 text-[13px]">
+            <li>
+              <button onClick={onLaunchStudio} className="text-left" style={{ color: INK_2 }}>
+                Open the studio
+              </button>
+            </li>
+            <li>
+              <a href="#privacy" style={{ color: INK_2 }}>
+                Privacy model
+              </a>
+            </li>
+            <li>
+              <a href="#speed" style={{ color: INK_2 }}>
+                How fast it answers
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <div className={`${mono} text-[10.5px] font-semibold uppercase tracking-[0.16em]`} style={{ color: INK_3 }}>
+            Under the hood
+          </div>
+          <p className="mt-3 text-[12.5px] leading-relaxed" style={{ color: INK_2 }}>
+            Runs on open models — llama.cpp, faster-whisper, and Piper — on hardware you own.
+          </p>
+          <div className="mt-3 flex items-center gap-2 text-[12px]" style={{ color: INK_3 }}>
+            <Lock className="h-3.5 w-3.5" />
+            Local inference · no cloud in the path
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t pt-6 text-[11.5px] md:flex-row" style={{ borderColor: HAIRLINE, color: INK_3 }}>
+        <span>© 2026 OddFromYou</span>
+        <span className="flex items-center gap-2">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Zero-egress private architecture · calendar connected
+        </span>
+      </div>
+    </div>
+  </footer>
+);
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+
+export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchStudio }) => (
+  <div className="min-h-screen antialiased" style={{ background: CANVAS, color: INK }}>
+    <Nav onLaunchStudio={onLaunchStudio} />
+    <main>
+      <Hero />
+      <LiveConsole />
+      <div className="px-5 pb-24 pt-0 md:px-8" style={{ background: BAND }}>
+        <div className="h-0" />
+        <CallPlayer
+          src="/demo_conversation.mp3"
+          title="Hear a booking call, start to finish — 85 seconds"
+          sub="Sample recording — a caller books a same-day repair with the local voice stack."
+        />
+      </div>
+      <HowItWorks />
+      <AcousticTimeline />
+      <Guardrails />
+      <Privacy />
+      <Ledger />
+      <Calculator onLaunchStudio={onLaunchStudio} />
+      <Faq />
+      <ClosingCTA onLaunchStudio={onLaunchStudio} />
+    </main>
+    <Footer onLaunchStudio={onLaunchStudio} />
+  </div>
+);
