@@ -546,3 +546,40 @@ Linear's depth is carried by surface ladder + hairline borders. The brand resist
 - Light mode is not documented because the marketing site does not ship a light theme.
 - Linear's actual product UI uses a richer color-tag palette (red, orange, yellow, green, blue, purple) for issue priorities and project labels — those colors live in the in-product surfaces shown in mockups.
 - The custom display, text, and mono families are proprietary; an open-source substitute is acceptable.
+
+---
+
+## Bellmaker Architecture: Dual Registers & Unified Identity Motif
+
+Per Owner Decision #2:
+> "Two registers, ONE identity motif. The landing page is a 1-bit specimen sheet; the console is dark and dense (Linear-derived). They stay. The shared motif is: the bell mark, one accent colour, tabular numerics for every number. Write this relationship into DESIGN.md and enforce it in code."
+
+### 1. Two Registers
+
+| Register | Surface | Visual Language | Color Palette | Type Treatment | Layout & Philosophy |
+|---|---|---|---|---|---|
+| **Register 1: Specimen Sheet** | Landing Page (`char`) | 1-bit mechanical specimen sheet, tactile print tradition | Paper (`#fbfaf8`) & Carbon (`#151412`), with inverse Carbon theme toggle | Archivo VF display, JetBrains Mono captions and metrics | Editorial catalog grids, plate presentation, hairline borders, print-shop density |
+| **Register 2: Control Console** | Operator Console (`apps/web`) | Linear-derived, dark, high-density software workbench | Canvas (`#010102`), 4-step charcoal surface ladder (`#0f1011` to `#191a1b`) | SF Pro Display / system-ui, ui-monospace for tokens | 3-column workstation (nav rail, editor, live telephony studio), hairline rules (`#23252a`) |
+
+### 2. The Shared Identity Motif
+
+The visual bridge connecting both registers consists of three non-negotiable anchors:
+1. **The Bell Mark**: The canonical engraved linework bell mark (`mark_maker.svg` / `mark_maker.png`) serves as the brand symbol on both surfaces. In the specimen sheet, it renders as an engraved maker's stamp; in the console, it anchors the workspace header.
+2. **One Accent Colour**: Linear lavender-blue (`#5e6ad2`, hover `#828fff`, focus `#5e69d1`) is the solitary chromatic accent in the console (CTAs, focus rings, selected badges). In the specimen sheet, ink is carbon black with lavender reserved strictly for interactive focus and key actions.
+3. **Tabular Numerics Everywhere**: Every single numeric representation across both surfaces enforces tabular formatting via `font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums;` and monospace styling. Latencies, pricing, timestamps, phone numbers, and test counts align cleanly in columns without proportional jitter.
+
+---
+
+## Anti-Slop Audit: Tier B Defaults Disposition
+
+All Tier B (WARN) design defaults are cataloged below with their disposition:
+
+| Default Rule | Occurrences in Tree (Baseline) | Occurrences in Active Tree (Post-Audit) | Disposition & Product-Specific Justification |
+|---|---|---|---|
+| **D1: Gradients as default** | 19 | **0** | **REMOVED** from active code. 8 orphaned legacy components (`BusinessPortal`, `ExecutiveDashboard`, etc.) contained reflex decorative gradients. Active console relies strictly on the 4-step surface ladder (`surface-1` through `surface-4`) without decorative gradients. (3 remaining instances in `legacy/` are preserved for historical provenance per Owner Decision #1). |
+| **D2: `transition-all`** | 45 | **0** | **REMOVED** from active code. Replaced with explicit property transitions (`transition-colors`, `transition: background 0.25s ease`). Prevents unintended layout animations. |
+| **D5: Unchosen default type** | 5 | **0 in active UI** | **REMOVED** default `Inter` and `Roboto` from font stacks. Console uses `"SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` for display and `ui-monospace` for code. Specimen sheet uses `Archivo VF` and `JetBrains Mono`. Documented intentional substitute stack. |
+| **D6: Glass / blur as default** | 12 | **0 in active UI** | **REMOVED** reflex `backdrop-blur` from console header. The header sits on opaque `#010102` canvas. Blur is used exclusively on dialog scrims if modals are presented. (6 instances in `legacy/` kept historical). |
+| **D8: Three-equal-card row** | 6 | **0 in active UI** | **REMOVED** from active code. The voice model options were converted from `grid-cols-3` to a responsive flex layout (`flex flex-col sm:flex-row gap-2`) with distinct visual weight per option. |
+| **D10: Viewport-height hero (`100vh`)** | 7 | **0 in active UI** | **REMOVED** from active code. Replaced with `100dvh` in `index.css` and `LinearVoiceStudio.tsx` to prevent clipping and layout jumps on mobile viewports. |
+

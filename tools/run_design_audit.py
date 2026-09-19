@@ -121,8 +121,8 @@ def main():
         page_c.on("console", lambda msg: console_errors.append(f"{msg.type}: {msg.text}") if msg.type in ("error", "warning") else None)
         page_c.on("pageerror", lambda err: console_errors.append(f"EXCEPTION: {err}"))
 
-        page_c.goto("http://127.0.0.1:3195", wait_until="networkidle")
-        time.sleep(1.0)
+        page_c.goto("http://127.0.0.1:3195", wait_until="load", timeout=8000)
+        time.sleep(0.5)
 
         # Desktop 1440x900 full
         path_c_desktop = os.path.join(SCREENSHOTS_DIR, "console_desktop_1440x900.png")
@@ -154,7 +154,7 @@ def main():
         # Mobile 390x844
         context_c_m = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)
         page_c_m = context_c_m.new_page()
-        page_c_m.goto("http://127.0.0.1:3195", wait_until="networkidle")
+        page_c_m.goto("http://127.0.0.1:3195", wait_until="load", timeout=8000)
         time.sleep(0.5)
         path_c_mobile = os.path.join(SCREENSHOTS_DIR, "console_mobile_390x844.png")
         page_c_m.screenshot(path=path_c_mobile)
@@ -172,8 +172,8 @@ def main():
         page_l.on("console", lambda msg: landing_errors.append(f"{msg.type}: {msg.text}") if msg.type in ("error", "warning") else None)
         page_l.on("pageerror", lambda err: landing_errors.append(f"EXCEPTION: {err}"))
 
-        page_l.goto("http://127.0.0.1:3196", wait_until="networkidle")
-        time.sleep(1.0)
+        page_l.goto("http://127.0.0.1:3196", wait_until="load", timeout=8000)
+        time.sleep(0.5)
 
         # Desktop 1440x900 full
         path_l_desktop = os.path.join(SCREENSHOTS_DIR, "landing_desktop_1440x900.png")
@@ -205,7 +205,7 @@ def main():
         # Mobile 390x844
         context_l_m = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)
         page_l_m = context_l_m.new_page()
-        page_l_m.goto("http://127.0.0.1:3196", wait_until="networkidle")
+        page_l_m.goto("http://127.0.0.1:3196", wait_until="load", timeout=8000)
         time.sleep(0.5)
         path_l_mobile = os.path.join(SCREENSHOTS_DIR, "landing_mobile_390x844.png")
         page_l_m.screenshot(path=path_l_mobile, full_page=True)
