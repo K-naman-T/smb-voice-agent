@@ -1,5 +1,5 @@
 [Unit]
-Description=Colocated llama-server for SMB Voice Agent
+Description=Colocated llama-server for Bellmaker
 After=network.target
 
 [Service]

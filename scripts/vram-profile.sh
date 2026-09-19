@@ -6,7 +6,7 @@ set -euo pipefail
 
 SSH_HOST="chomp"
 LLAMA_PORT="8083"
-LLAMA_API_KEY="change-me-high-entropy"
+LLAMA_API_KEY=${LLAMA_API_KEY:-}
 VRAM_CEILING_MB=6500
 
 echo "=== VRAM Profiler (Host: $SSH_HOST) ==="
@@ -41,7 +41,8 @@ python3 - << 'PYEOF'
 import asyncio
 import httpx
 
-API_KEY = "change-me-high-entropy"
+import os
+API_KEY = os.environ.get("LLAMA_API_KEY", "")
 URL = "http://127.0.0.1:8083/v1/chat/completions"
 
 async def req(i: int):

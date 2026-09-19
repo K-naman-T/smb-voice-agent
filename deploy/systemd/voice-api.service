@@ -1,5 +1,5 @@
 [Unit]
-Description=Control Plane API for SMB Voice Agent
+Description=Control Plane API for Bellmaker
 After=network.target voice-llama.service
 
 [Service]

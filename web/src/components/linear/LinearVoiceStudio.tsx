@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Activity,
+  Bell,
   Bot,
   Calendar,
   Check,
@@ -14,7 +15,6 @@ import {
   PhoneIncoming,
   PhoneOff,
   Play,
-  Radio,
   Send,
   Shield,
   ShieldCheck,
@@ -144,48 +144,48 @@ interface HistoricalCall {
 
 const HISTORICAL_CALLS: HistoricalCall[] = [
   {
-    id: "CALL-9842",
-    caller: "+91 98234 11200",
-    timestamp: "Today, 10:41 AM",
+    id: "SIM-001",
+    caller: "Local Simulator · Line 1",
+    timestamp: "Session 1 (simulated)",
     duration: "1m 34s",
     intent: "AC Foam Jet Cleaning",
-    ttfa: 178,
+    ttfa: 1420,
     status: "Booked",
     toolUsed: "reserve_slot()",
-    summary: "Customer booked Deep Foam Jet Cleaning for tomorrow at 10:00 AM. Verified within 8 AM - 8 PM hours.",
+    summary: "Simulated caller booked Deep Foam Jet Cleaning. State machine verified: PROPOSED→CONFIRMED→COMMITTED.",
   },
   {
-    id: "CALL-9841",
-    caller: "+91 97110 44521",
-    timestamp: "Today, 09:18 AM",
+    id: "SIM-002",
+    caller: "Local Simulator · Line 2",
+    timestamp: "Session 2 (simulated)",
     duration: "2m 04s",
     intent: "R32 Gas Refill Inquiry",
-    ttfa: 184,
+    ttfa: 1510,
     status: "Completed",
     toolUsed: "quote_rate()",
-    summary: "Inquired about R32 gas refill pricing. Agent quoted ₹2,400 standard per unit and explained technician visit diagnostic fee.",
+    summary: "Simulated inquiry about R32 gas refill. Agent quoted standard catalog rate without hallucinations.",
   },
   {
-    id: "CALL-9840",
-    caller: "+91 98450 88912",
-    timestamp: "Yesterday, 11:30 PM",
+    id: "SIM-003",
+    caller: "Local Simulator · Line 3",
+    timestamp: "Session 3 (simulated)",
     duration: "45s",
     intent: "2 AM Night Service",
-    ttfa: 165,
+    ttfa: 1240,
     status: "Rejected",
     toolUsed: "check_hours()",
-    summary: "Caller requested 2:00 AM urgent visit. Safety invariant triggered: polite rejection and re-scheduled to 8:00 AM morning slot.",
+    summary: "Simulated 2:00 AM urgent visit. Safety invariant triggered: rejection outside 8 AM - 8 PM window.",
   },
   {
-    id: "CALL-9839",
-    caller: "+91 96500 33145",
-    timestamp: "Yesterday, 04:12 PM",
+    id: "SIM-004",
+    caller: "Local Simulator · Line 4",
+    timestamp: "Session 4 (simulated)",
     duration: "1m 52s",
     intent: "Duct Fabrication Request",
-    ttfa: 191,
+    ttfa: 1380,
     status: "Escalated",
     toolUsed: "escalate_to_human()",
-    summary: "Out-of-scope commercial duct manufacturing requested. Handed off to human project director with full transcript context.",
+    summary: "Out-of-scope commercial duct manufacturing requested. Fallback triggered to human supervisor.",
   },
 ];
 
@@ -200,7 +200,7 @@ export const LinearVoiceStudio: React.FC = () => {
 
   // Editable configurations
   const [greetingText, setGreetingText] = useState(preset.initialGreeting);
-  const [voiceModel, setVoiceModel] = useState("Bulbul v2 Indic (Sarvam AI)");
+  const [voiceModel, setVoiceModel] = useState("Piper Amy Low (Local CPU)");
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [interruptionSensitivity, setInterruptionSensitivity] = useState(85);
   const [isCopiedPhone, setIsCopiedPhone] = useState(false);
@@ -355,25 +355,25 @@ export const LinearVoiceStudio: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen max-h-screen w-screen bg-[#010102] text-[#f7f8f8] overflow-hidden select-none font-sans">
+    <div className="flex h-[100dvh] max-h-[100dvh] w-screen bg-[#010102] text-[#f7f8f8] overflow-hidden select-none font-sans">
       {/* ─────────────────────────────────────────────────────────────
           1. LEFT NAVIGATION RAIL (Linear Style: Dense, 56 width, #080809)
          ───────────────────────────────────────────────────────────── */}
       <aside className="w-56 flex-shrink-0 bg-[#080809] border-r border-[#23252a] flex flex-col justify-between z-20">
         <div>
-          {/* Workspace Switcher */}
+          {/* Workspace Switcher with Bell Mark Motif */}
           <div className="h-12 border-b border-[#23252a] px-3 flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="w-5 h-5 rounded bg-[#5e6ad2] flex items-center justify-center text-white shadow-sm flex-shrink-0">
-                <Radio className="w-3 h-3" />
+                <Bell className="w-3 h-3" />
               </div>
               <div className="flex flex-col truncate">
-                <span className="text-xs font-medium text-[#f7f8f8] truncate">Linear Voice Core</span>
-                <span className="text-[10px] text-[#8a8f98] font-mono">prod-us-east · v2.4</span>
+                <span className="text-xs font-medium text-[#f7f8f8] truncate">Bellmaker Console</span>
+                <span className="text-[10px] text-[#8a8f98] font-mono tabular-nums">smb-voice-agent · v0.2.0</span>
               </div>
             </div>
-            <span className="text-[10px] font-mono bg-[#141516] text-[#27a644] px-1.5 py-0.5 rounded border border-[#23252a]">
-              LIVE
+            <span className="text-[10px] font-mono bg-[#141516] text-[#8a8f98] px-1.5 py-0.5 rounded border border-[#23252a]">
+              STANDBY
             </span>
           </div>
 
@@ -410,7 +410,7 @@ export const LinearVoiceStudio: React.FC = () => {
                 <PhoneCall className={`w-3.5 h-3.5 ${activeNav === "calls" ? "text-[#5e6ad2]" : "text-[#8a8f98]"}`} />
                 <span>Call Logs & Audio</span>
               </div>
-              <span className="text-[10px] font-mono bg-[#141516] px-1 rounded text-[#8a8f98]">102</span>
+              <span className="text-[10px] font-mono bg-[#141516] px-1 rounded text-[#8a8f98] tabular-nums">4</span>
             </button>
 
             <button
@@ -425,7 +425,7 @@ export const LinearVoiceStudio: React.FC = () => {
                 <Wrench className={`w-3.5 h-3.5 ${activeNav === "tools" ? "text-[#5e6ad2]" : "text-[#8a8f98]"}`} />
                 <span>Tool Functions</span>
               </div>
-              <span className="text-[10px] font-mono text-[#62666d]">4</span>
+              <span className="text-[10px] font-mono text-[#62666d] tabular-nums">4</span>
             </button>
 
             <button
@@ -440,7 +440,7 @@ export const LinearVoiceStudio: React.FC = () => {
                 <ShieldCheck className={`w-3.5 h-3.5 ${activeNav === "guardrails" ? "text-[#27a644]" : "text-[#8a8f98]"}`} />
                 <span>Safety Invariants</span>
               </div>
-              <span className="text-[10px] font-mono text-[#27a644]">100%</span>
+              <span className="text-[10px] font-mono text-[#27a644] tabular-nums">I1–I9</span>
             </button>
 
             <button
@@ -455,7 +455,7 @@ export const LinearVoiceStudio: React.FC = () => {
                 <Activity className={`w-3.5 h-3.5 ${activeNav === "telemetry" ? "text-[#5e6ad2]" : "text-[#8a8f98]"}`} />
                 <span>Pipeline SLA</span>
               </div>
-              <span className="text-[10px] font-mono text-[#27a644]">182ms</span>
+              <span className="text-[10px] font-mono text-[#8a8f98] tabular-nums">SLO ≤1.6s</span>
             </button>
           </div>
 
@@ -463,7 +463,7 @@ export const LinearVoiceStudio: React.FC = () => {
           <div className="p-2 border-t border-[#1c1d22]">
             <div className="px-2 pt-1 pb-1.5 flex items-center justify-between text-[10px] font-medium tracking-wider uppercase text-[#62666d]">
               <span>SMB Preset Kits</span>
-              <span className="text-[9px] font-mono">4 ACTIVE</span>
+              <span className="text-[9px] font-mono tabular-nums">4 ACTIVE</span>
             </div>
 
             <div className="space-y-1">
@@ -473,7 +473,7 @@ export const LinearVoiceStudio: React.FC = () => {
                   <button
                     key={p.id}
                     onClick={() => setSelectedPresetKey(p.id)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between ${
                       isSelected
                         ? "bg-[#141516] text-[#f7f8f8] border border-[#5e6ad2]/50 font-medium"
                         : "text-[#8a8f98] hover:text-[#d0d6e0] hover:bg-[#0f1011]"
@@ -481,7 +481,7 @@ export const LinearVoiceStudio: React.FC = () => {
                   >
                     <div className="truncate">
                       <div className="truncate">{p.name}</div>
-                      <div className="text-[10px] text-[#62666d] truncate font-mono">{p.phone}</div>
+                      <div className="text-[10px] text-[#62666d] truncate font-mono tabular-nums">{p.phone}</div>
                     </div>
                     {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#5e6ad2]" />}
                   </button>
@@ -495,14 +495,14 @@ export const LinearVoiceStudio: React.FC = () => {
         <div className="p-3 border-t border-[#23252a] bg-[#090a0c] space-y-1.5">
           <div className="flex items-center justify-between text-[10px] font-mono text-[#8a8f98]">
             <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#27a644]" />
-              chomp:8083 (Llama)
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8a8f98]" />
+              chomp:8083 (Host Standby)
             </span>
-            <span className="text-[#f7f8f8]">182ms TTFA</span>
+            <span className="text-[#8a8f98] tabular-nums">SLO ≤1600ms</span>
           </div>
           <div className="flex items-center justify-between text-[10px] font-mono text-[#62666d]">
-            <span>Bulbul v2 TTS</span>
-            <span>24kHz Opus</span>
+            <span>Piper TTS (CPU)</span>
+            <span>LiveKit WebRTC</span>
           </div>
         </div>
       </aside>
@@ -512,22 +512,22 @@ export const LinearVoiceStudio: React.FC = () => {
          ───────────────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col min-w-0 bg-[#010102] overflow-hidden">
         {/* Top Sticky Navigation Bar (Linear Header) */}
-        <header className="h-12 border-b border-[#23252a] px-4 flex items-center justify-between flex-shrink-0 bg-[#010102]/95 backdrop-blur">
+        <header className="h-12 border-b border-[#23252a] px-4 flex items-center justify-between flex-shrink-0 bg-[#010102]">
           {/* Breadcrumb Trail */}
           <div className="flex items-center gap-2 text-xs">
             <span className="text-[#8a8f98]">Voice Agents</span>
             <span className="text-[#62666d]">/</span>
             <span className="text-[#f7f8f8] font-medium">{preset.businessName}</span>
-            <span className="bg-[#141516] text-[#27a644] text-[10px] font-mono px-2 py-0.5 rounded-full border border-[#23252a] flex items-center gap-1 ml-1.5">
-              <span className="w-1 h-1 rounded-full bg-[#27a644]" />
-              v2.4-prod
+            <span className="bg-[#141516] text-[#8a8f98] text-[10px] font-mono px-2 py-0.5 rounded-full border border-[#23252a] flex items-center gap-1 ml-1.5 tabular-nums">
+              <span className="w-1 h-1 rounded-full bg-[#8a8f98]" />
+              v0.2.0-dev
             </span>
           </div>
 
           {/* Quick Actions & Linear Lavender CTA */}
           <div className="flex items-center gap-2">
             {/* Phone Number Pill with Copy */}
-            <div className="flex items-center gap-1.5 bg-[#0f1011] border border-[#23252a] rounded-md px-2.5 py-1 text-xs font-mono text-[#d0d6e0]">
+            <div className="flex items-center gap-1.5 bg-[#0f1011] border border-[#23252a] rounded-md px-2.5 py-1 text-xs font-mono tabular-nums text-[#d0d6e0]">
               <Phone className="w-3 h-3 text-[#5e6ad2]" />
               <span>{preset.phone}</span>
               <button
@@ -550,12 +550,12 @@ export const LinearVoiceStudio: React.FC = () => {
             {/* Primary Lavender Deploy CTA */}
             <button
               onClick={() => {
-                alert(`Agent ${preset.name} deployed to live SIP trunks!`);
+                alert(`Agent ${preset.name} compiled. Live promote requires acoustic certify on chomp hardware.`);
               }}
               className="bg-[#5e6ad2] hover:bg-[#828fff] text-white px-3.5 py-1 rounded-md text-xs font-medium transition-colors shadow-sm flex items-center gap-1.5"
             >
               <Zap className="w-3 h-3" />
-              <span>Deploy Agent</span>
+              <span>Compile Draft</span>
             </button>
           </div>
         </header>
@@ -649,8 +649,8 @@ export const LinearVoiceStudio: React.FC = () => {
                   />
 
                   <div className="flex items-center justify-between text-[11px] text-[#8a8f98] pt-1">
-                    <span>Low-latency synthesized buffer · Speaks in 140ms on connection</span>
-                    <span className="font-mono">{greetingText.length} chars</span>
+                    <span>Piper CPU local synthesis · ~50–120ms first PCM</span>
+                    <span className="font-mono tabular-nums">{greetingText.length} chars</span>
                   </div>
                 </div>
 
@@ -748,17 +748,17 @@ export const LinearVoiceStudio: React.FC = () => {
             {studioTab === "voice" && (
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-3">
-                  <div className="text-xs font-medium text-[#f7f8f8]">Speech Synthesis Engine</div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="text-xs font-medium text-[#f7f8f8]">Speech Synthesis & STT Engine (Local-Private §2.3/§2.4)</div>
+                  <div className="flex flex-col sm:flex-row gap-2">
                     {[
-                      { name: "Bulbul v2 Indic", desc: "Sarvam AI · Ultra Low Latency (18ms)", badge: "Optimal" },
-                      { name: "Whisper Large-v3", desc: "OpenAI Fine-Tuned · Bilingual Hindi", badge: "Accurate" },
-                      { name: "Opus Low-Delay", desc: "24kHz Native Telephony Pipeline", badge: "20ms frames" },
+                      { name: "Piper Amy Low", desc: "Local CPU ONNX · ~50–120ms latency · 0 VRAM", badge: "Default" },
+                      { name: "Piper Lessac Med", desc: "Local CPU ONNX · ~80–150ms latency · 0 VRAM", badge: "High Quality" },
+                      { name: "faster-whisper Small", desc: "CUDA / CPU int8_float16 · ~250ms EOT", badge: "Acoustic" },
                     ].map((m, i) => (
                       <div
                         key={i}
                         onClick={() => setVoiceModel(m.name)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                           voiceModel.includes(m.name.split(" ")[0])
                             ? "bg-[#141516] border-[#5e6ad2] shadow-sm"
                             : "bg-[#090a0c] border-[#23252a] hover:border-[#34343a]"
@@ -780,7 +780,7 @@ export const LinearVoiceStudio: React.FC = () => {
                   <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-[#f7f8f8]">Speech Cadence Speed</span>
-                      <span className="text-xs font-mono text-[#5e6ad2]">{voiceSpeed.toFixed(2)}x</span>
+                      <span className="text-xs font-mono tabular-nums text-[#5e6ad2]">{voiceSpeed.toFixed(2)}x</span>
                     </div>
                     <input
                       type="range"
@@ -791,7 +791,7 @@ export const LinearVoiceStudio: React.FC = () => {
                       onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))}
                       className="w-full accent-[#5e6ad2]"
                     />
-                    <div className="flex justify-between text-[10px] text-[#8a8f98] font-mono">
+                    <div className="flex justify-between text-[10px] text-[#8a8f98] font-mono tabular-nums">
                       <span>0.75x (Relaxed)</span>
                       <span>1.0x (Natural)</span>
                       <span>1.30x (Rapid)</span>
@@ -801,7 +801,7 @@ export const LinearVoiceStudio: React.FC = () => {
                   <div className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-[#f7f8f8]">Interruption Sensitivity</span>
-                      <span className="text-xs font-mono text-[#27a644]">{interruptionSensitivity}%</span>
+                      <span className="text-xs font-mono tabular-nums text-[#27a644]">{interruptionSensitivity}%</span>
                     </div>
                     <input
                       type="range"
@@ -811,10 +811,10 @@ export const LinearVoiceStudio: React.FC = () => {
                       onChange={(e) => setInterruptionSensitivity(parseInt(e.target.value))}
                       className="w-full accent-[#5e6ad2]"
                     />
-                    <div className="flex justify-between text-[10px] text-[#8a8f98] font-mono">
+                    <div className="flex justify-between text-[10px] text-[#8a8f98] font-mono tabular-nums">
                       <span>Low (Patient)</span>
                       <span>85% (Balanced VAD)</span>
-                      <span>Instant (0ms cutoff)</span>
+                      <span>SLO ≤200ms stop</span>
                     </div>
                   </div>
                 </div>
@@ -829,19 +829,19 @@ export const LinearVoiceStudio: React.FC = () => {
                     name: "reserve_slot(service: string, time: string)",
                     desc: "Reserves an exclusive calendar slot in SQLite local database and generates verifiable slot token.",
                     schema: '{"service": "string", "preferred_iso_timestamp": "string", "customer_phone": "string"}',
-                    invocations: "1,248 successful calls",
+                    invocations: "State machine: PROPOSED→CONFIRMED→COMMITTED",
                   },
                   {
                     name: "quote_rate(service_name: string)",
                     desc: "Queries deterministic rate matrix. Enforces anti-hallucination bounds against uncataloged pricing.",
                     schema: '{"service_name": "string", "unit_quantity": "integer"}',
-                    invocations: "3,890 queries",
+                    invocations: "Deterministic rate bounded",
                   },
                   {
                     name: "escalate_to_human(reason: string, priority: string)",
-                    desc: "Performs instant SIP trunk transfer to human on-duty supervisor line +91 98000 00000.",
+                    desc: "Performs instant WebRTC/SIP transfer to human on-duty supervisor line.",
                     schema: '{"reason": "string", "caller_number": "string", "urgency": "high | standard"}',
-                    invocations: "14 transfers",
+                    invocations: "Safety fallback handler",
                   },
                 ].map((tool, i) => (
                   <div key={i} className="bg-[#0f1011] border border-[#23252a] rounded-lg p-3.5 space-y-2">
@@ -859,7 +859,7 @@ export const LinearVoiceStudio: React.FC = () => {
                       {tool.schema}
                     </div>
                     <div className="flex items-center justify-between pt-1 text-[10px] font-mono text-[#62666d]">
-                      <span>Latency: &lt;12ms execution</span>
+                      <span>Latency SLO: ≤2500ms tools TTFA</span>
                       <span>{tool.invocations}</span>
                     </div>
                   </div>
@@ -876,10 +876,10 @@ export const LinearVoiceStudio: React.FC = () => {
                       <Shield className="w-4 h-4 text-[#27a644]" />
                       <span className="text-xs font-medium text-[#f7f8f8]">Active Invariant Verification Engine</span>
                     </div>
-                    <span className="text-[10px] font-mono text-[#27a644]">100% PASSING (102 TESTS)</span>
+                    <span className="text-[10px] font-mono tabular-nums text-[#27a644]">97 PASSED · 5 HOST-BLOCKED (chomp:8083)</span>
                   </div>
                   <p className="text-xs text-[#8a8f98]">
-                    Invariants are strictly enforced via programmatic pre-checks and output validation before any token is passed to Bulbul TTS.
+                    Invariants are strictly enforced via programmatic pre-checks and output validation before any token is passed to Piper TTS.
                   </p>
                 </div>
 
@@ -892,7 +892,7 @@ export const LinearVoiceStudio: React.FC = () => {
                         <div className="text-[10px] text-[#8a8f98] mt-0.5 flex items-center gap-2 font-mono">
                           <span>CATEGORY: {g.type.toUpperCase()}</span>
                           <span>·</span>
-                          <span className="text-[#27a644]">ENFORCED IN SILICON</span>
+                          <span className="text-[#27a644]">ENFORCED IN LOGIC</span>
                         </div>
                       </div>
                     </div>
@@ -909,12 +909,12 @@ export const LinearVoiceStudio: React.FC = () => {
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-medium text-[#f7f8f8]">Inbound Call Sessions & Telephony Recordings</h2>
-                <p className="text-xs text-[#8a8f98]">Verified dual-channel recordings, TTFA latency breakdowns, and turn transcripts.</p>
+                <h2 className="text-sm font-medium text-[#f7f8f8]">Simulated Test Sessions & Telephony Traces</h2>
+                <p className="text-xs text-[#8a8f98]">Local-private verification traces, turn transcripts, and SLO benchmarks.</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-[#8a8f98] bg-[#0f1011] px-2 py-1 rounded border border-[#23252a]">
-                  Total: 102 Completed Calls
+                <span className="text-xs font-mono tabular-nums text-[#8a8f98] bg-[#0f1011] px-2 py-1 rounded border border-[#23252a]">
+                  4 Simulated Test Scenarios
                 </span>
               </div>
             </div>
@@ -927,7 +927,7 @@ export const LinearVoiceStudio: React.FC = () => {
                     <th className="px-3 py-2 font-medium">Caller</th>
                     <th className="px-3 py-2 font-medium">Service Intent</th>
                     <th className="px-3 py-2 font-medium">Duration</th>
-                    <th className="px-3 py-2 font-medium">TTFA</th>
+                    <th className="px-3 py-2 font-medium">Latency SLO</th>
                     <th className="px-3 py-2 font-medium">Tool Invoked</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                   </tr>
@@ -935,11 +935,11 @@ export const LinearVoiceStudio: React.FC = () => {
                 <tbody className="divide-y divide-[#1c1d22]">
                   {HISTORICAL_CALLS.map((c) => (
                     <tr key={c.id} className="hover:bg-[#141516]/60 transition-colors">
-                      <td className="px-3 py-2.5 font-mono text-[#5e6ad2] font-medium">{c.id}</td>
+                      <td className="px-3 py-2.5 font-mono text-[#5e6ad2] font-medium tabular-nums">{c.id}</td>
                       <td className="px-3 py-2.5 font-mono text-[#f7f8f8]">{c.caller}</td>
                       <td className="px-3 py-2.5 text-[#d0d6e0]">{c.intent}</td>
-                      <td className="px-3 py-2.5 font-mono text-[#8a8f98]">{c.duration}</td>
-                      <td className="px-3 py-2.5 font-mono text-[#27a644]">{c.ttfa}ms</td>
+                      <td className="px-3 py-2.5 font-mono text-[#8a8f98] tabular-nums">{c.duration}</td>
+                      <td className="px-3 py-2.5 font-mono text-[#27a644] tabular-nums">≤1600ms</td>
                       <td className="px-3 py-2.5 font-mono text-[#8a8f98]">{c.toolUsed}</td>
                       <td className="px-3 py-2.5">
                         <span

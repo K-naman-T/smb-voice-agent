@@ -1,9 +1,16 @@
-# legacy/ — v1 prototype (historical)
+# legacy/ — Retired v1 Prototype Stack (Historical)
 
-These files describe the **v1 prototype** of the SMB Voice Agent
-(Twilio + Sarvam + Gemini + MiniMax). They are kept for historical reference
-only and **must not be imported by the v2 source tree** under `apps/`,
-`packages/`, `deploy/`, `scripts/`, `tests/`, or `docs/`.
+> [!WARNING]
+> **RETIRED ARCHITECTURE BANNER**
+> This directory contains the retired v1 stack (Twilio / Sarvam / Gemini / MiniMax). It is **not** the current v2 architecture (`local-private` with llama.cpp, faster-whisper, Piper, and LiveKit).
+> 
+> Historical defects preserved in this directory for audit and provenance:
+> 1. `legacy/api_main.py` contains a broken import (`TwiMLResponse` from `twilio.twiml.voice_response` which does not exist in modern twilio SDKs).
+> 2. `legacy/setup_v1.sh` contains a placeholder Gemini API key (`AIzaSy...`).
+> 3. `legacy/SPEC_v1.md` contains unfulfilled v1 prototype TODO markers. <!-- slop-allow: H2 historical banner citation -->
+> 
+> These files are kept for historical context and audit trail only. They must **never** be imported into or deployed with the v2 runtime.
+
 
 The v2 product contract lives at `../docs/PRODUCT_SPEC.md`. The v2 engineering
 plan lives at `../docs/ENGINEERING_PLAN_v2.md`. The v2 import boundary is

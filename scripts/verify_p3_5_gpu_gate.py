@@ -94,8 +94,8 @@ async def main() -> int:
     print("=== Running P3.5 GPU Gate Benchmarks ===")
 
     client = LlamaServerClient(
-        base_url="http://127.0.0.1:8083/v1",
-        api_key="change-me-high-entropy",
+        base_url=os.environ.get("LLAMA_SERVER_URL", "http://127.0.0.1:8083/v1"),
+        api_key=os.environ.get("LLAMA_API_KEY", ""),
         timeout=20.0
     )
 

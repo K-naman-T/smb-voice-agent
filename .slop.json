@@ -1,0 +1,7 @@
+{
+  "disable": [],
+  "exempt_globs": [
+    "tests/**",
+    "docs/design/**"
+  ]
+}

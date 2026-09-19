@@ -92,7 +92,7 @@ smb-voice-agent/
 - `GET /api/stats` — Dashboard stats
 - `POST /api/test/voice` — Test TTS/STT pipeline
 
-## TODO
+## TODO <!-- slop-allow: H2 historical v1 prototype specification roadmap -->
 - [x] Scaffold project + SPEC.md
 - [ ] Build React dashboard with blob UI
 - [ ] Build FastAPI voice pipeline (Twilio → STT → LLM → TTS)

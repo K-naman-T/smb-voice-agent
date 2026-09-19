@@ -1,4 +1,4 @@
-# SMB Voice Agent (v2)
+# Bellmaker (smb-voice-agent v0.2.0)
 
 Local-private, agency-operated **voice-agent configurator**. v1 is historical;
 see `legacy/` and `docs/PRODUCT_SPEC.md` for the v2 product contract.

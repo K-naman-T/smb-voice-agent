@@ -1,0 +1,3 @@
+# paths the slop gate should skip
+docs/archive/**
+*.min.js

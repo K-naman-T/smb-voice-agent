@@ -13,7 +13,7 @@ from voice_api.routes import agents, appointments, calls, certify, tenants
 settings = load_settings()
 
 app = FastAPI(
-    title="SMB Voice Agent Control API",
+    title="Bellmaker Control API",
     version="2.0.0",
     description="Control plane for configuring, simulating, certifying, and deploying local voice agents.",
 )
