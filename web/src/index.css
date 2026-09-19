@@ -10,7 +10,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }
 button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 
-.bellmaker-shell { --paper: #fbfaf8; --paper-2: #f3f1ed; --ink: #151412; --muted: #5e5b56; --faint: #85817a; --line: rgba(21,20,18,.28); --hair: rgba(21,20,18,.15); --carbon: #151412; min-height: 100vh; background: var(--paper); color: var(--ink); transition: background .25s ease, color .25s ease; }
+.bellmaker-shell { --paper: #fbfaf8; --paper-2: #f3f1ed; --ink: #151412; --muted: #5e5b56; --faint: #6f6b64; --line: rgba(21,20,18,.28); --hair: rgba(21,20,18,.15); --carbon: #151412; min-height: 100vh; background: var(--paper); color: var(--ink); transition: background .25s ease, color .25s ease; }
 .bellmaker-shell.theme-carbon { --paper: #151412; --paper-2: #201e1a; --ink: #fbfaf8; --muted: #c7c2b9; --faint: #979189; --line: rgba(251,250,248,.42); --hair: rgba(251,250,248,.19); --carbon: #fbfaf8; }
 .bellmaker-shell a { color: inherit; text-decoration: none; }
 .bellmaker-shell button { color: inherit; }
@@ -53,7 +53,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .hero-grid { display: grid; grid-template-columns: 1.18fr .82fr; gap: 28px; padding: 45px 0 30px; border-bottom: 1px solid var(--line); }
 .hero-copy { padding: 18px 0 8px; }
 .hero-kicker { font-size: 10px; letter-spacing: .07em; color: var(--muted); }
-.hero h1 { margin: 15px 0 18px; font: 700 clamp(54px, 8.5vw, 126px)/.82 "Archivo", sans-serif; letter-spacing: -.085em; text-transform: uppercase; }
+.hero h1 { margin: 15px 0 18px; font: 700 clamp(54px, 8.5vw, 126px)/.82 "Archivo", sans-serif; letter-spacing: -.085em; word-spacing: .16em; text-transform: uppercase; }
 .hero h1 em, .closing-box h2 em { font-style: normal; font-weight: 400; }
 .hero-lede { max-width: 530px; margin: 0; font-size: clamp(16px, 1.7vw, 21px); line-height: 1.42; }
 .hero-actions { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; }
@@ -198,7 +198,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 
 .closing { padding-top: 20px; }
 .closing-box { border: 1px solid var(--line); padding: 24px; text-align: center; }
-.closing-box h2 { margin: 48px 0 16px; font: 700 clamp(45px, 8vw, 100px)/.84 "Archivo"; letter-spacing: -.08em; text-transform: uppercase; }
+.closing-box h2 { margin: 48px 0 16px; font: 700 clamp(45px, 8vw, 100px)/.84 "Archivo"; letter-spacing: -.08em; word-spacing: .14em; text-transform: uppercase; }
 .closing-box p { max-width: 500px; margin: 0 auto; color: var(--muted); font-size: 15px; line-height: 1.5; }
 .closing-box > div:last-child { display: flex; justify-content: center; gap: 9px; margin-top: 25px; flex-wrap: wrap; }
 
