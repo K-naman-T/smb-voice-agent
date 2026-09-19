@@ -1,0 +1,8 @@
+# Pinned dependencies for smb-voice-agent (Bellmaker)
+# Generated from verified active runtime (Python 3.14 on host flex)
+fastapi==0.136.1
+uvicorn==0.47.0
+sqlalchemy==2.0.52
+httpx==0.28.1
+faster-whisper==1.2.1
+pydantic==2.13.4

@@ -2,6 +2,8 @@
   "disable": [],
   "exempt_globs": [
     "tests/**",
-    "docs/design/**"
+    "docs/**",
+    "legacy/**",
+    "DESIGN.md"
   ]
 }

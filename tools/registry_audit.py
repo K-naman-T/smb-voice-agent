@@ -24,7 +24,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 UA = {"User-Agent": "hermes-registry-audit/1.0"}
-LOCAL_PREFIXES = ("@our-scope/", "file:", "link:", "workspace:", "./", "../", "-e ", "git+", "http")
+LOCAL_PREFIXES = ("@our-scope/", "file:", "link:", "workspace:", "./", "../", "-e ", "git+", "http://", "https://")
 
 
 def req_json(url: str, timeout: int = 20):
@@ -103,7 +103,15 @@ def check(ecosystem: str, name: str, max_age_days: int):
     elif ecosystem == "pypi":
         status, data = req_json(f"https://pypi.org/pypi/{urllib.parse.quote(name)}/json")
         age = None
-        if data and data.get("urls"):
+        if data and data.get("releases"):
+            earliest = None
+            for rel_files in data["releases"].values():
+                for f in rel_files:
+                    t = f.get("upload_time_iso_8601")
+                    if t and (earliest is None or t < earliest):
+                        earliest = t
+            age = earliest
+        elif data and data.get("urls"):
             age = data["urls"][0].get("upload_time_iso_8601")
     else:
         status, data = req_json(f"https://rubygems.org/api/v1/gems/{urllib.parse.quote(name)}.json")
