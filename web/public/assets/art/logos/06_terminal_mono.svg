@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 160" width="100%" height="100%">
+  <text x="300" y="84" text-anchor="middle" font-family="'Liberation Mono', 'JetBrains Mono', monospace" font-size="46" font-weight="700" letter-spacing="1" fill="currentColor"><tspan fill="#6E6A63">[</tspan>bellmaker<tspan fill="#6E6A63">]</tspan></text>
+  <rect x="424" y="52" width="10" height="34" fill="#1B5E3C"/>
+  <text x="300" y="120" text-anchor="middle" font-family="'Liberation Mono', monospace" font-size="10" letter-spacing="1" fill="#6E6A63">$ ./bellmaker --local-only --listen 127.0.0.1:8083</text>
+</svg>

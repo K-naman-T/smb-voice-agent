@@ -1,0 +1,15 @@
+TASK — one image, efficiently. Do NOT search the web; go straight to the steps.
+
+STEP 1 — generate the base image:
+A BELLMAKER rendered as a dark SILHOUETTE — a solid black craftsman shape, no facial detail, no interior linework — standing beside a large cast bell, one hand resting on it, seen from the side, calm monumental posture. Strong simple shapes, generous negative space at the top, plain white background.
+
+STEP 2 — convert with a script (write & run Python + Pillow; pip install pillow if needed):
+Pure 1-BIT ORDERED BAYER DITHER:
+- exactly TWO tones: black #151412 and warm paper #FBFAF8. No grayscale, no other colors.
+- 8x8 Bayer ordered dither (NOT Floyd–Steinberg / error diffusion). Visible regular dot-matrix pattern.
+- final size about 896x1200 vertical.
+
+STEP 3 — save and verify:
+Save to /home/knamant/orca/workspaces/smb-voice-agent/char/web/public/assets/art/bellmaker2.png
+Then verify: file exists, valid PNG, print dimensions, confirm only the two allowed tones are present.
+Then finish — do not start any other work.

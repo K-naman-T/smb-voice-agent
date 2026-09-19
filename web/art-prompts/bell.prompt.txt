@@ -1,0 +1,15 @@
+TASK — one image, efficiently. Do NOT search the web; go straight to the steps.
+
+STEP 1 — generate the base image:
+A single monumental BELL: a bronze bell with crown loops hanging from a heavy wooden beam; a coiled rope beside it; a small anvil and one pair of tongs at the base. NO humans. Strong simple shapes, generous negative space at the top, plain white background.
+
+STEP 2 — convert with a script (write & run Python + Pillow; pip install pillow if needed):
+Pure 1-BIT ORDERED BAYER DITHER:
+- exactly TWO tones: black #151412 and warm paper #FBFAF8. No grayscale, no other colors.
+- 8x8 Bayer ordered dither (NOT Floyd–Steinberg / error diffusion). Visible regular dot-matrix pattern.
+- final size about 896x1200 vertical.
+
+STEP 3 — save and verify:
+Save to /home/knamant/orca/workspaces/smb-voice-agent/char/web/public/assets/art/bell2.png
+Then verify: file exists, valid PNG, print dimensions, confirm only the two allowed tones are present.
+Then finish — do not start any other work.

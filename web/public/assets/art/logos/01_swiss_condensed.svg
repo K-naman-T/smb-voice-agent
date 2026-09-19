@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 160" width="100%" height="100%">
+  <text x="300" y="85" text-anchor="middle" font-family="'Nimbus Sans Narrow', 'Helvetica Neue Condensed', 'Arial Narrow', sans-serif" font-size="64" font-weight="900" letter-spacing="2" fill="currentColor">BELLMAKER</text>
+  <text x="300" y="116" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" letter-spacing="4" fill="#6E6A63">ACOUSTIC INTELLIGENCE · ON-PREMISE</text>
+  <line x1="220" y1="130" x2="380" y2="130" stroke="#6E6A63" stroke-width="0.8" opacity="0.4"/>
+</svg>
