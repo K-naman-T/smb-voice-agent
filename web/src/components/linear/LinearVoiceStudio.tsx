@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { HolyWhiteVoiceOrb } from "../voice/HolyWhiteVoiceOrb";
 import { useVoiceCall, CallLogEntry, PresetContext, ActiveBackendSession } from "../voice/useVoiceCall";
+import "../../studio.css";
 
 type NavKey = "overview" | "agent" | "calls";
 type EditorTab = "prompt" | "voice" | "engine" | "knowledge" | "rules";
@@ -612,6 +613,21 @@ export const LinearVoiceStudio: React.FC<LinearVoiceStudioProps> = ({ onExitStud
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns, interimText]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showDeployModal) {
+          setShowDeployModal(false);
+        }
+        if (callState !== "idle") {
+          endCall();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showDeployModal, callState, endCall]);
+
   const copyPhone = async () => {
     await navigator.clipboard?.writeText(preset.phone);
     setCopied(true);
@@ -634,7 +650,7 @@ export const LinearVoiceStudio: React.FC<LinearVoiceStudioProps> = ({ onExitStud
         <div>
           <div className="brand-row">
             <div className="brand-mark"><span /><span /><span /></div>
-            <span className="brand-name">OFY</span>
+            <span className="brand-name">Bellmaker</span>
             {onExitStudio && (
               <button
                 className="exit-link-btn"
